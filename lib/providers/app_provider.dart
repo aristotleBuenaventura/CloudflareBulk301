@@ -1,0 +1,146 @@
+import 'package:flutter/foundation.dart';
+
+import '../models/domain_result.dart';
+import '../services/cloudflare_api.dart';
+import '../services/session_service.dart';
+
+class AppProvider extends ChangeNotifier {
+  AppProvider(this._session);
+
+  final SessionService _session;
+
+  bool _isLoading = false;
+  String? _errorMessage;
+  List<DomainResult> _results = [];
+
+  bool get isAuthenticated => _session.isAuthenticated;
+
+  String? get accountEmail => _session.accountEmail;
+
+  bool get isLoading => _isLoading;
+
+  String? get errorMessage => _errorMessage;
+
+  List<DomainResult> get results => List.unmodifiable(_results);
+
+  Future<bool> login(String apiToken) async {
+    _setLoading(true);
+    _errorMessage = null;
+
+    try {
+      final api = CloudflareApi(apiToken.trim());
+      final user = await api.verifyToken();
+      _session.startSession(apiToken: apiToken, email: user.email);
+      notifyListeners();
+      return true;
+    } on CloudflareApiException catch (error) {
+      _errorMessage = error.message;
+      notifyListeners();
+      return false;
+    } catch (error) {
+      _errorMessage = 'Connection failed: $error';
+      notifyListeners();
+      return false;
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  void logout() {
+    _session.endSession();
+    _results = [];
+    _errorMessage = null;
+    notifyListeners();
+  }
+
+  Future<void> applyBulkRedirects({
+    required List<String> domains,
+    required String targetUrl,
+    required bool preservePath,
+    required bool preserveQueryString,
+    void Function(int completed, int total)? onProgress,
+  }) async {
+    final token = _session.apiToken;
+    if (token == null) {
+      throw StateError('Not authenticated.');
+    }
+
+    final uniqueDomains = domains
+        .map((domain) => domain.trim())
+        .where((domain) => domain.isNotEmpty)
+        .toSet()
+        .toList();
+
+    _results = uniqueDomains
+        .map((domain) => DomainResult(domain: domain))
+        .toList();
+    _setLoading(true);
+    _errorMessage = null;
+    notifyListeners();
+
+    final api = CloudflareApi(token);
+    var completed = 0;
+
+    for (var i = 0; i < _results.length; i++) {
+      final domain = _results[i].domain;
+
+      try {
+        final zoneId = await api.findZoneId(domain);
+        if (zoneId == null) {
+          _results[i] = _results[i].copyWith(
+            status: DomainResultStatus.failed,
+            message: 'Zone not found in this Cloudflare account.',
+          );
+        } else {
+          final created = await api.createFullDomainRedirect(
+            zoneId: zoneId,
+            targetBaseUrl: targetUrl,
+            preservePath: preservePath,
+            preserveQueryString: preserveQueryString,
+          );
+
+          _results[i] = _results[i].copyWith(
+            status: created
+                ? DomainResultStatus.success
+                : DomainResultStatus.skipped,
+            zoneId: zoneId,
+            message: created
+                ? '301 redirect rule created.'
+                : 'Redirect rule already exists for this target.',
+          );
+        }
+      } on CloudflareApiException catch (error) {
+        _results[i] = _results[i].copyWith(
+          status: DomainResultStatus.failed,
+          message: error.message,
+        );
+      } catch (error) {
+        _results[i] = _results[i].copyWith(
+          status: DomainResultStatus.failed,
+          message: error.toString(),
+        );
+      }
+
+      completed++;
+      onProgress?.call(completed, _results.length);
+      notifyListeners();
+
+      if (i < _results.length - 1) {
+        await Future<void>.delayed(const Duration(milliseconds: 250));
+      }
+    }
+
+    _setLoading(false);
+    notifyListeners();
+  }
+
+  void clearResults() {
+    _results = [];
+    notifyListeners();
+  }
+
+  void _setLoading(bool value) {
+    _isLoading = value;
+    notifyListeners();
+  }
+}
