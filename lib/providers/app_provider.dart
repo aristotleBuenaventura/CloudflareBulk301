@@ -15,6 +15,8 @@ class AppProvider extends ChangeNotifier {
 
   bool get isAuthenticated => _session.isAuthenticated;
 
+  bool get isAccountToken => _session.isAccountToken;
+
   String? get accountEmail => _session.accountEmail;
 
   bool get isLoading => _isLoading;
@@ -28,9 +30,13 @@ class AppProvider extends ChangeNotifier {
     _errorMessage = null;
 
     try {
-      final api = CloudflareApi(apiToken.trim());
+      final api = CloudflareApi(_normalizeToken(apiToken));
       final user = await api.verifyToken();
-      _session.startSession(apiToken: apiToken, email: user.email);
+      _session.startSession(
+        apiToken: _normalizeToken(apiToken),
+        email: user.email,
+        isAccountToken: user.isAccountToken,
+      );
       notifyListeners();
       return true;
     } on CloudflareApiException catch (error) {
@@ -92,21 +98,20 @@ class AppProvider extends ChangeNotifier {
             message: 'Zone not found in this Cloudflare account.',
           );
         } else {
-          final created = await api.createFullDomainRedirect(
+          final result = await api.createFullDomainRedirect(
             zoneId: zoneId,
+            sourceDomain: domain,
             targetBaseUrl: targetUrl,
             preservePath: preservePath,
             preserveQueryString: preserveQueryString,
           );
 
           _results[i] = _results[i].copyWith(
-            status: created
+            status: result.created
                 ? DomainResultStatus.success
                 : DomainResultStatus.skipped,
             zoneId: zoneId,
-            message: created
-                ? '301 redirect rule created.'
-                : 'Redirect rule already exists for this target.',
+            message: result.message,
           );
         }
       } on CloudflareApiException catch (error) {
@@ -137,6 +142,10 @@ class AppProvider extends ChangeNotifier {
   void clearResults() {
     _results = [];
     notifyListeners();
+  }
+
+  String _normalizeToken(String token) {
+    return token.trim().replaceAll(RegExp(r'\s+'), '');
   }
 
   void _setLoading(bool value) {

@@ -167,6 +167,25 @@ class _BulkRedirectScreenState extends State<BulkRedirectScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.primaryContainer
+                          .withValues(alpha: 0.35),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      provider.isAccountToken
+                          ? '⚠️ cfat_ token: rules go to Rules → Overview → Redirect Rules.\n'
+                              'Existing 301 rules will be overwritten.'
+                          : 'Using User token: creates/updates Page Rules like *domain.com/* → '
+                              r'https://target.com/$2. Existing rules are overwritten.',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onPrimaryContainer,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
                   Text(
                     'Target domain',
                     style: theme.textTheme.titleMedium,

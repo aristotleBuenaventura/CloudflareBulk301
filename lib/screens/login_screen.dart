@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/app_provider.dart';
+import '../services/public_ip_service.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -14,6 +15,24 @@ class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _tokenController = TextEditingController();
   bool _obscureToken = true;
+  PublicIpInfo? _publicIps;
+  bool _loadingIps = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPublicIps();
+  }
+
+  Future<void> _loadPublicIps() async {
+    final ips = await PublicIpService().fetch();
+    if (mounted) {
+      setState(() {
+        _publicIps = ips;
+        _loadingIps = false;
+      });
+    }
+  }
 
   @override
   void dispose() {
@@ -33,6 +52,7 @@ class _LoginScreenState extends State<LoginScreen> {
         SnackBar(
           content: Text(provider.errorMessage ?? 'Login failed.'),
           backgroundColor: Theme.of(context).colorScheme.error,
+          duration: const Duration(seconds: 8),
         ),
       );
     }
@@ -106,33 +126,12 @@ class _LoginScreenState extends State<LoginScreen> {
                       onFieldSubmitted: (_) => _submit(),
                     ),
                     const SizedBox(height: 16),
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: theme.colorScheme.secondaryContainer
-                            .withValues(alpha: 0.5),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.lock_outline,
-                            size: 20,
-                            color: theme.colorScheme.onSecondaryContainer,
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              'Your API token is kept in memory only and is never saved to disk.',
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: theme.colorScheme.onSecondaryContainer,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
+                    _PublicIpPanel(
+                      ips: _publicIps,
+                      loading: _loadingIps,
+                      onRefresh: _loadPublicIps,
                     ),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 16),
                     FilledButton(
                       onPressed: provider.isLoading ? null : _submit,
                       child: provider.isLoading
@@ -143,9 +142,18 @@ class _LoginScreenState extends State<LoginScreen> {
                             )
                           : const Text('Connect'),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 8),
                     Text(
-                      'Required token permissions: Zone Read, Zone Rules Edit',
+                      'cfat_ account tokens → Redirect Rules. '
+                      'cfut_ user tokens → Page Rules.',
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Token is kept in memory only — never saved to disk.',
                       textAlign: TextAlign.center,
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
@@ -158,6 +166,84 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _PublicIpPanel extends StatelessWidget {
+  const _PublicIpPanel({
+    required this.ips,
+    required this.loading,
+    required this.onRefresh,
+  });
+
+  final PublicIpInfo? ips;
+  final bool loading;
+  final VoidCallback onRefresh;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: theme.colorScheme.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.public, size: 18, color: theme.colorScheme.primary),
+              const SizedBox(width: 8),
+              Text(
+                'Add these IPs to your token allowlist',
+                style: theme.textTheme.labelLarge,
+              ),
+              const Spacer(),
+              IconButton(
+                tooltip: 'Refresh IPs',
+                onPressed: loading ? null : onRefresh,
+                icon: const Icon(Icons.refresh, size: 18),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          if (loading)
+            const LinearProgressIndicator()
+          else ...[
+            _IpRow(label: 'IPv4', value: ips?.ipv4 ?? 'Unavailable'),
+            const SizedBox(height: 4),
+            _IpRow(label: 'IPv6', value: ips?.ipv6 ?? 'Unavailable'),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _IpRow extends StatelessWidget {
+  const _IpRow({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return SelectableText.rich(
+      TextSpan(
+        children: [
+          TextSpan(
+            text: '$label: ',
+            style: const TextStyle(fontWeight: FontWeight.w600),
+          ),
+          TextSpan(text: value),
+        ],
+      ),
+      style: Theme.of(context).textTheme.bodySmall,
     );
   }
 }
