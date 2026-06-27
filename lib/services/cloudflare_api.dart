@@ -26,6 +26,26 @@ class CloudflareUser {
   final bool isAccountToken;
 }
 
+class CloudflareZone {
+  const CloudflareZone({
+    required this.id,
+    required this.name,
+    required this.status,
+  });
+
+  final String id;
+  final String name;
+  final String status;
+
+  bool get isNotYetActive =>
+      status == 'pending' || status == 'initializing';
+
+  String get pendingNote => isNotYetActive
+      ? 'Rule saved. Redirect will work once nameservers point to Cloudflare '
+          'and the zone status becomes Active.'
+      : '';
+}
+
 class CloudflareApi {
   CloudflareApi(this._token);
 
@@ -114,9 +134,26 @@ class CloudflareApi {
   }
 
   Future<String?> findZoneId(String domain) async {
-    final normalized = _normalizeDomain(domain);
+    final zone = await findZone(domain);
+    return zone?.id;
+  }
+
+  Future<CloudflareZone?> findZone(String domain) async {
+    for (final candidate in _domainCandidates(domain)) {
+      final zones = await _fetchZonesByName(candidate);
+      for (final zone in zones) {
+        if (zone.name == candidate) {
+          return zone;
+        }
+      }
+    }
+
+    return null;
+  }
+
+  Future<List<CloudflareZone>> _fetchZonesByName(String name) async {
     final response = await http.get(
-      Uri.parse('$_baseUrl/zones?name=$normalized&status=active&match=all'),
+      Uri.parse('$_baseUrl/zones?name=${Uri.encodeComponent(name)}&match=all'),
       headers: _headers,
     );
 
@@ -129,14 +166,27 @@ class CloudflareApi {
     }
 
     final zones = body.result as List<dynamic>? ?? [];
-    for (final zone in zones) {
+    return zones.map((zone) {
       final map = zone as Map<String, dynamic>;
-      if ((map['name'] as String?)?.toLowerCase() == normalized) {
-        return map['id'] as String?;
-      }
+      return CloudflareZone(
+        id: map['id'] as String,
+        name: (map['name'] as String).toLowerCase(),
+        status: map['status'] as String? ?? 'unknown',
+      );
+    }).toList();
+  }
+
+  List<String> _domainCandidates(String domain) {
+    final normalized = _normalizeDomain(domain);
+    final candidates = <String>{normalized};
+
+    if (normalized.startsWith('www.')) {
+      candidates.add(normalized.substring(4));
+    } else {
+      candidates.add('www.$normalized');
     }
 
-    return null;
+    return candidates.toList();
   }
 
   /// Creates a 301 redirect using Page Rules (user tokens) or Redirect Rules (account tokens).

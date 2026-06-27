@@ -179,7 +179,8 @@ class _BulkRedirectScreenState extends State<BulkRedirectScreen> {
                           ? '⚠️ cfat_ token: rules go to Rules → Overview → Redirect Rules.\n'
                               'Existing 301 rules will be overwritten.'
                           : 'Using User token: creates/updates Page Rules like *domain.com/* → '
-                              r'https://target.com/$2. Existing rules are overwritten.',
+                              r'https://target.com/$2. Works even if zone is pending — '
+                              'redirect activates once nameservers are valid.',
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: theme.colorScheme.onPrimaryContainer,
                       ),

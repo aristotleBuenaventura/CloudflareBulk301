@@ -91,27 +91,35 @@ class AppProvider extends ChangeNotifier {
       final domain = _results[i].domain;
 
       try {
-        final zoneId = await api.findZoneId(domain);
-        if (zoneId == null) {
+        final zone = await api.findZone(domain);
+        if (zone == null) {
           _results[i] = _results[i].copyWith(
             status: DomainResultStatus.failed,
-            message: 'Zone not found in this Cloudflare account.',
+            message: 'Zone not found for "$domain". '
+                'Check: (1) domain is added in Cloudflare, '
+                '(2) API token includes All zones, '
+                '(3) use apex name e.g. example.com not www.example.com.',
           );
         } else {
           final result = await api.createFullDomainRedirect(
-            zoneId: zoneId,
+            zoneId: zone.id,
             sourceDomain: domain,
             targetBaseUrl: targetUrl,
             preservePath: preservePath,
             preserveQueryString: preserveQueryString,
           );
 
+          var message = result.message;
+          if (zone.pendingNote.isNotEmpty) {
+            message = '$message\n${zone.pendingNote}';
+          }
+
           _results[i] = _results[i].copyWith(
             status: result.created
                 ? DomainResultStatus.success
                 : DomainResultStatus.skipped,
-            zoneId: zoneId,
-            message: result.message,
+            zoneId: zone.id,
+            message: message,
           );
         }
       } on CloudflareApiException catch (error) {
