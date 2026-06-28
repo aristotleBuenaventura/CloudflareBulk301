@@ -19,8 +19,6 @@ class _BulkRedirectScreenState extends State<BulkRedirectScreen> {
   final _targetController = TextEditingController();
   final _domainController = TextEditingController();
   final _domains = <String>[];
-  var _preservePath = true;
-  var _preserveQueryString = true;
   var _progress = 0;
   var _progressTotal = 0;
 
@@ -46,6 +44,10 @@ class _BulkRedirectScreenState extends State<BulkRedirectScreen> {
 
   void _removeDomain(String domain) {
     setState(() => _domains.remove(domain));
+  }
+
+  void _clearDomains() {
+    setState(() => _domains.clear());
   }
 
   Future<void> _importCsv() async {
@@ -114,8 +116,6 @@ class _BulkRedirectScreenState extends State<BulkRedirectScreen> {
     await provider.applyBulkRedirects(
       domains: _domains,
       targetUrl: target,
-      preservePath: _preservePath,
-      preserveQueryString: _preserveQueryString,
       onProgress: (completed, total) {
         if (mounted) {
           setState(() {
@@ -200,32 +200,21 @@ class _BulkRedirectScreenState extends State<BulkRedirectScreen> {
                       prefixIcon: Icon(Icons.link),
                     ),
                   ),
-                  const SizedBox(height: 16),
-                  SwitchListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text('Preserve path'),
-                    subtitle: const Text(
-                      'e.g. old.com/page → newdomain.com/page',
-                    ),
-                    value: _preservePath,
-                    onChanged: provider.isLoading
-                        ? null
-                        : (value) => setState(() => _preservePath = value),
-                  ),
-                  SwitchListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text('Preserve query string'),
-                    subtitle: const Text('Keep ?utm=... and other parameters'),
-                    value: _preserveQueryString,
-                    onChanged: provider.isLoading
-                        ? null
-                        : (value) =>
-                            setState(() => _preserveQueryString = value),
-                  ),
                   const Divider(height: 32),
-                  Text(
-                    'Source domains',
-                    style: theme.textTheme.titleMedium,
+                  Row(
+                    children: [
+                      Text(
+                        'Source domains',
+                        style: theme.textTheme.titleMedium,
+                      ),
+                      const Spacer(),
+                      if (_domains.isNotEmpty)
+                        TextButton.icon(
+                          onPressed: provider.isLoading ? null : _clearDomains,
+                          icon: const Icon(Icons.clear_all, size: 18),
+                          label: const Text('Clear'),
+                        ),
+                    ],
                   ),
                   const SizedBox(height: 8),
                   Row(

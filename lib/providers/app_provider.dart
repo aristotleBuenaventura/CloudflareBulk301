@@ -62,8 +62,6 @@ class AppProvider extends ChangeNotifier {
   Future<void> applyBulkRedirects({
     required List<String> domains,
     required String targetUrl,
-    required bool preservePath,
-    required bool preserveQueryString,
     void Function(int completed, int total)? onProgress,
   }) async {
     final token = _session.apiToken;
@@ -105,8 +103,8 @@ class AppProvider extends ChangeNotifier {
             zoneId: zone.id,
             sourceDomain: domain,
             targetBaseUrl: targetUrl,
-            preservePath: preservePath,
-            preserveQueryString: preserveQueryString,
+            preservePath: true,
+            preserveQueryString: true,
           );
 
           var message = result.message;
