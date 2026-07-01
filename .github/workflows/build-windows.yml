@@ -1,0 +1,45 @@
+name: Build Windows Release
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build Windows release
+        run: flutter build windows --release
+
+      - name: Package release folder
+        shell: pwsh
+        run: |
+          $releaseDir = "build/windows/x64/runner/Release"
+          $zipName = "CloudflareBulk301-Windows-x64.zip"
+          if (-not (Test-Path $releaseDir)) {
+            throw "Release folder not found: $releaseDir"
+          }
+          Compress-Archive -Path "$releaseDir/*" -DestinationPath $zipName -Force
+          Write-Host "Created $zipName"
+
+      - name: Upload Windows build
+        uses: actions/upload-artifact@v4
+        with:
+          name: CloudflareBulk301-Windows-x64
+          path: CloudflareBulk301-Windows-x64.zip
+          retention-days: 30
