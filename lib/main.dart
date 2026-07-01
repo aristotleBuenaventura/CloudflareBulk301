@@ -13,28 +13,31 @@ void main() {
 class CloudflareBulk301App extends StatelessWidget {
   const CloudflareBulk301App({super.key});
 
+  static ThemeData _buildTheme(Brightness brightness) {
+    return ThemeData(
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: const Color(0xFFF6821F),
+        brightness: brightness,
+      ),
+      useMaterial3: true,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
       create: (_) => AppProvider(SessionService()),
-      child: MaterialApp(
-        title: 'Cloudflare Bulk 301',
-        debugShowCheckedModeBanner: false,
-        theme: ThemeData(
-          colorScheme: ColorScheme.fromSeed(
-            seedColor: const Color(0xFFF6821F),
-            brightness: Brightness.light,
-          ),
-          useMaterial3: true,
-        ),
-        darkTheme: ThemeData(
-          colorScheme: ColorScheme.fromSeed(
-            seedColor: const Color(0xFFF6821F),
-            brightness: Brightness.dark,
-          ),
-          useMaterial3: true,
-        ),
-        home: const _AuthGate(),
+      child: Consumer<AppProvider>(
+        builder: (context, provider, _) {
+          return MaterialApp(
+            title: 'Cloudflare Bulk 301',
+            debugShowCheckedModeBanner: false,
+            theme: _buildTheme(Brightness.light),
+            darkTheme: _buildTheme(Brightness.dark),
+            themeMode: provider.themeMode,
+            home: const _AuthGate(),
+          );
+        },
       ),
     );
   }

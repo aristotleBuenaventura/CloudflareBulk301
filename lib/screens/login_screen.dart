@@ -98,7 +98,9 @@ class _LoginScreenState extends State<LoginScreen> {
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
                     ),
-                    const SizedBox(height: 32),
+                    const SizedBox(height: 24),
+                    const _ThemeSelector(),
+                    const SizedBox(height: 24),
                     TextFormField(
                       controller: _tokenController,
                       obscureText: _obscureToken,
@@ -166,6 +168,45 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _ThemeSelector extends StatelessWidget {
+  const _ThemeSelector();
+
+  @override
+  Widget build(BuildContext context) {
+    final provider = context.watch<AppProvider>();
+    final theme = Theme.of(context);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          'Theme',
+          style: theme.textTheme.labelLarge,
+        ),
+        const SizedBox(height: 8),
+        SegmentedButton<ThemeMode>(
+          segments: const [
+            ButtonSegment(
+              value: ThemeMode.light,
+              label: Text('Light'),
+              icon: Icon(Icons.light_mode_outlined, size: 18),
+            ),
+            ButtonSegment(
+              value: ThemeMode.dark,
+              label: Text('Dark'),
+              icon: Icon(Icons.dark_mode_outlined, size: 18),
+            ),
+          ],
+          selected: {provider.themeMode},
+          onSelectionChanged: (selection) {
+            provider.setThemeMode(selection.first);
+          },
+        ),
+      ],
     );
   }
 }

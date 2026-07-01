@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 
 import '../models/domain_result.dart';
 import '../services/cloudflare_api.dart';
@@ -12,8 +13,19 @@ class AppProvider extends ChangeNotifier {
   bool _isLoading = false;
   String? _errorMessage;
   List<DomainResult> _results = [];
+  ThemeMode _themeMode = ThemeMode.light;
 
   bool get isAuthenticated => _session.isAuthenticated;
+
+  ThemeMode get themeMode => _themeMode;
+
+  void setThemeMode(ThemeMode mode) {
+    if (_themeMode == mode) {
+      return;
+    }
+    _themeMode = mode;
+    notifyListeners();
+  }
 
   bool get isAccountToken => _session.isAccountToken;
 
