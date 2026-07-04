@@ -71,32 +71,25 @@ class _LoginScreenState extends State<LoginScreen> {
           minHeight: 640,
           child: LayoutBuilder(
             builder: (context, constraints) {
-              const horizontalPadding = 32.0;
-
-              return SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: horizontalPadding,
-                ),
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(
-                    minWidth: constraints.maxWidth,
-                    minHeight: constraints.maxHeight,
-                  ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      SizedBox(
+              return SizedBox(
+                width: constraints.maxWidth,
+                height: constraints.maxHeight,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 32),
+                      child: SizedBox(
                         width: 480,
                         child: Card(
                           child: Padding(
-                          padding: const EdgeInsets.all(32),
-                          child: Form(
-                            key: _formKey,
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
+                            padding: const EdgeInsets.all(32),
+                            child: Form(
+                              key: _formKey,
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
                                 Icon(
                                   Icons.swap_horiz_rounded,
                                   size: 48,
@@ -186,14 +179,14 @@ class _LoginScreenState extends State<LoginScreen> {
                                     color: theme.colorScheme.onSurfaceVariant,
                                   ),
                                 ),
-                              ],
+                                ],
+                              ),
                             ),
                           ),
                         ),
                       ),
                     ),
-                    ],
-                  ),
+                  ],
                 ),
               );
             },

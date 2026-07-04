@@ -170,11 +170,11 @@ class _BulkRedirectScreenState extends State<BulkRedirectScreen> {
         minHeight: 560,
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final formPanel = SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
+            final formPanel = Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
@@ -272,51 +272,53 @@ class _BulkRedirectScreenState extends State<BulkRedirectScreen> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                if (_domains.isEmpty)
-                  Container(
-                    padding: const EdgeInsets.all(24),
-                    decoration: BoxDecoration(
-                      border: Border.all(
-                        color: theme.colorScheme.outlineVariant,
-                      ),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      'No domains added yet.',
-                      textAlign: TextAlign.center,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  )
-                else
-                  Container(
-                    constraints: const BoxConstraints(maxHeight: 280),
-                    decoration: BoxDecoration(
-                      border: Border.all(
-                        color: theme.colorScheme.outlineVariant,
-                      ),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: ListView.separated(
-                      shrinkWrap: true,
-                      itemCount: _domains.length,
-                      separatorBuilder: (_, _) => const Divider(height: 1),
-                      itemBuilder: (context, index) {
-                        final domain = _domains[index];
-                        return ListTile(
-                          dense: true,
-                          title: Text(domain),
-                          trailing: IconButton(
-                            icon: const Icon(Icons.close, size: 18),
-                            onPressed: provider.isLoading
-                                ? null
-                                : () => _removeDomain(domain),
+                Expanded(
+                  child: _domains.isEmpty
+                      ? Container(
+                          padding: const EdgeInsets.all(24),
+                          decoration: BoxDecoration(
+                            border: Border.all(
+                              color: theme.colorScheme.outlineVariant,
+                            ),
+                            borderRadius: BorderRadius.circular(8),
                           ),
-                        );
-                      },
-                    ),
-                  ),
+                          child: Center(
+                            child: Text(
+                              'No domains added yet.',
+                              textAlign: TextAlign.center,
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ),
+                        )
+                      : Container(
+                          decoration: BoxDecoration(
+                            border: Border.all(
+                              color: theme.colorScheme.outlineVariant,
+                            ),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: ListView.separated(
+                            itemCount: _domains.length,
+                            separatorBuilder: (_, _) =>
+                                const Divider(height: 1),
+                            itemBuilder: (context, index) {
+                              final domain = _domains[index];
+                              return ListTile(
+                                dense: true,
+                                title: Text(domain),
+                                trailing: IconButton(
+                                  icon: const Icon(Icons.close, size: 18),
+                                  onPressed: provider.isLoading
+                                      ? null
+                                      : () => _removeDomain(domain),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                ),
                 const SizedBox(height: 24),
                 FilledButton.icon(
                   onPressed: provider.isLoading ? null : _applyRedirects,
@@ -333,9 +335,9 @@ class _BulkRedirectScreenState extends State<BulkRedirectScreen> {
                     value: _progress / _progressTotal,
                   ),
                 ],
-              ],
-            ),
-          );
+                ],
+              ),
+            );
 
           final resultsPanel = Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
