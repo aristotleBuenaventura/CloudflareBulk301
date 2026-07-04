@@ -141,7 +141,7 @@ class _BulkRedirectScreenState extends State<BulkRedirectScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Bulk 301 Redirects'),
+        title: const Text('SEO 301 Redirects'),
         actions: [
           if (provider.accountEmail != null)
             Padding(
@@ -209,14 +209,6 @@ class _BulkRedirectScreenState extends State<BulkRedirectScreen> {
                     contentPadding: EdgeInsets.zero,
                     controlAffinity: ListTileControlAffinity.leading,
                     title: const Text('Wildcard'),
-                    subtitle: Text(
-                      _wildcard
-                          ? r'*old.com/* → https://new.com/$2'
-                          : r'old.com/* → https://new.com',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
                     value: _wildcard,
                     onChanged: provider.isLoading
                         ? null

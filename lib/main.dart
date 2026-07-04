@@ -30,7 +30,7 @@ class CloudflareBulk301App extends StatelessWidget {
       child: Consumer<AppProvider>(
         builder: (context, provider, _) {
           return MaterialApp(
-            title: 'Cloudflare Bulk 301',
+            title: 'SEO 301 Redirects',
             debugShowCheckedModeBanner: false,
             theme: _buildTheme(Brightness.light),
             darkTheme: _buildTheme(Brightness.dark),
