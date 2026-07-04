@@ -1,9 +1,9 @@
 # Project-level configuration.
 cmake_minimum_required(VERSION 3.14)
-project(seo_301_redirects LANGUAGES CXX)
+project(cloudflare_bulk301 LANGUAGES CXX)
 
-# CMake target name (no spaces). Flutter tooling references this identifier.
-set(BINARY_NAME "seo_301_redirects")
+# CMake target name used by Flutter tooling (must match pubspec name).
+set(BINARY_NAME "cloudflare_bulk301")
 
 # On-disk executable name shown to users.
 set(APPLICATION_DISPLAY_NAME "SEO 301 Redirects")
