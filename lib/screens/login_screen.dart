@@ -71,18 +71,25 @@ class _LoginScreenState extends State<LoginScreen> {
           minHeight: 640,
           child: LayoutBuilder(
             builder: (context, constraints) {
+              const horizontalPadding = 32.0;
+
               return SingleChildScrollView(
-                padding: const EdgeInsets.all(32),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: horizontalPadding,
+                ),
                 child: ConstrainedBox(
                   constraints: BoxConstraints(
                     minWidth: constraints.maxWidth,
                     minHeight: constraints.maxHeight,
                   ),
-                  child: Center(
-                    child: SizedBox(
-                      width: 480,
-                      child: Card(
-                        child: Padding(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SizedBox(
+                        width: 480,
+                        child: Card(
+                          child: Padding(
                           padding: const EdgeInsets.all(32),
                           child: Form(
                             key: _formKey,
@@ -185,6 +192,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                       ),
                     ),
+                    ],
                   ),
                 ),
               );
