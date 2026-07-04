@@ -8,6 +8,7 @@ import '../constants/app_window_sizes.dart';
 import '../models/domain_result.dart';
 import '../providers/app_provider.dart';
 import '../services/csv_parser.dart';
+import '../widgets/developer_branding.dart';
 import '../widgets/frozen_scroll_viewport.dart';
 
 class BulkRedirectScreen extends StatefulWidget {
@@ -174,10 +175,12 @@ class _BulkRedirectScreenState extends State<BulkRedirectScreen> {
           ),
         ],
       ),
-      body: FrozenScrollViewport(
-        minWidth: 900,
-        minHeight: 560,
-        child: LayoutBuilder(
+      body: Stack(
+        children: [
+          FrozenScrollViewport(
+            minWidth: 900,
+            minHeight: 560,
+            child: LayoutBuilder(
           builder: (context, constraints) {
             final formPanel = Padding(
               padding: const EdgeInsets.all(24),
@@ -412,7 +415,14 @@ class _BulkRedirectScreenState extends State<BulkRedirectScreen> {
               ],
             );
           },
-        ),
+            ),
+          ),
+          const Positioned(
+            right: 16,
+            bottom: 8,
+            child: DeveloperBranding(),
+          ),
+        ],
       ),
     );
   }

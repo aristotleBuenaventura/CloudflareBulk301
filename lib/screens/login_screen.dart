@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../constants/app_window_sizes.dart';
 import '../providers/app_provider.dart';
 import '../services/public_ip_service.dart';
+import '../widgets/developer_branding.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -69,27 +70,30 @@ class _LoginScreenState extends State<LoginScreen> {
 
     return Scaffold(
       body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            return SizedBox(
-              width: constraints.maxWidth,
-              height: constraints.maxHeight,
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 32),
-                    child: SizedBox(
-                      width: 480,
-                      child: Card(
-                          child: Padding(
-                            padding: const EdgeInsets.all(32),
-                            child: Form(
-                              key: _formKey,
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
+        child: Stack(
+          children: [
+            LayoutBuilder(
+              builder: (context, constraints) {
+                return SizedBox(
+                  width: constraints.maxWidth,
+                  height: constraints.maxHeight,
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 32),
+                        child: SizedBox(
+                          width: 480,
+                          child: Card(
+                            child: Padding(
+                              padding: const EdgeInsets.all(32),
+                              child: Form(
+                                key: _formKey,
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
+                                  children: [
                                 Icon(
                                   Icons.swap_horiz_rounded,
                                   size: 48,
@@ -179,17 +183,24 @@ class _LoginScreenState extends State<LoginScreen> {
                                     color: theme.colorScheme.onSurfaceVariant,
                                   ),
                                 ),
-                                ],
+                                  ],
+                                ),
                               ),
                             ),
                           ),
                         ),
                       ),
-                    ),
-                ],
-              ),
-            );
-          },
+                    ],
+                  ),
+                );
+              },
+            ),
+            const Positioned(
+              right: 16,
+              bottom: 8,
+              child: DeveloperBranding(),
+            ),
+          ],
         ),
       ),
     );
