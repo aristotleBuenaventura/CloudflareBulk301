@@ -92,9 +92,9 @@ BEGIN
             VALUE "CompanyName", "com.cloudflarebulk301" "\0"
             VALUE "FileDescription", "SEO 301 Redirects" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "cloudflare_bulk301" "\0"
+            VALUE "InternalName", "SEO 301 Redirects" "\0"
             VALUE "LegalCopyright", "Copyright (C) 2026 com.cloudflarebulk301. All rights reserved." "\0"
-            VALUE "OriginalFilename", "cloudflare_bulk301.exe" "\0"
+            VALUE "OriginalFilename", "SEO 301 Redirects.exe" "\0"
             VALUE "ProductName", "SEO 301 Redirects" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END

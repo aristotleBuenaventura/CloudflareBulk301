@@ -7,11 +7,11 @@ import 'screens/login_screen.dart';
 import 'services/session_service.dart';
 
 void main() {
-  runApp(const CloudflareBulk301App());
+  runApp(const Seo301RedirectsApp());
 }
 
-class CloudflareBulk301App extends StatelessWidget {
-  const CloudflareBulk301App({super.key});
+class Seo301RedirectsApp extends StatelessWidget {
+  const Seo301RedirectsApp({super.key});
 
   static ThemeData _buildTheme(Brightness brightness) {
     return ThemeData(

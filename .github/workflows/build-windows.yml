@@ -30,7 +30,7 @@ jobs:
         shell: pwsh
         run: |
           $releaseDir = "build/windows/x64/runner/Release"
-          $zipName = "CloudflareBulk301-Windows-x64.zip"
+          $zipName = "SEO-301-Redirects-Windows-x64.zip"
           if (-not (Test-Path $releaseDir)) {
             throw "Release folder not found: $releaseDir"
           }
@@ -40,6 +40,6 @@ jobs:
       - name: Upload Windows build
         uses: actions/upload-artifact@v4
         with:
-          name: CloudflareBulk301-Windows-x64
-          path: CloudflareBulk301-Windows-x64.zip
+          name: SEO-301-Redirects-Windows-x64
+          path: SEO-301-Redirects-Windows-x64.zip
           retention-days: 30
