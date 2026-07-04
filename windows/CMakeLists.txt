@@ -2,9 +2,11 @@
 cmake_minimum_required(VERSION 3.14)
 project(seo_301_redirects LANGUAGES CXX)
 
-# The name of the executable created for the application. Change this to change
-# the on-disk name of your application.
-set(BINARY_NAME "SEO 301 Redirects")
+# CMake target name (no spaces). Flutter tooling references this identifier.
+set(BINARY_NAME "seo_301_redirects")
+
+# On-disk executable name shown to users.
+set(APPLICATION_DISPLAY_NAME "SEO 301 Redirects")
 
 # Explicitly opt in to modern CMake behaviors to avoid warnings with recent
 # versions of CMake.
