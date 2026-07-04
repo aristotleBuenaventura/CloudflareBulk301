@@ -69,110 +69,126 @@ class _LoginScreenState extends State<LoginScreen> {
         child: FrozenScrollViewport(
           minWidth: 544,
           minHeight: 640,
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(32, 32, 32, 32),
-            child: Center(
-              child: SizedBox(
-                width: 480,
-                child: Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(32),
-                    child: Form(
-                      key: _formKey,
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                    Icon(
-                      Icons.swap_horiz_rounded,
-                      size: 48,
-                      color: theme.colorScheme.primary,
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'SEO 301 Redirects',
-                      textAlign: TextAlign.center,
-                      style: theme.textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Sign in with your Cloudflare API token to manage bulk redirects.',
-                      textAlign: TextAlign.center,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    const _ThemeSelector(),
-                    const SizedBox(height: 24),
-                    TextFormField(
-                      controller: _tokenController,
-                      obscureText: _obscureToken,
-                      decoration: InputDecoration(
-                        labelText: 'Cloudflare API Token',
-                        hintText: 'Paste your API token here',
-                        border: const OutlineInputBorder(),
-                        suffixIcon: IconButton(
-                          icon: Icon(
-                            _obscureToken
-                                ? Icons.visibility_outlined
-                                : Icons.visibility_off_outlined,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              return SingleChildScrollView(
+                padding: const EdgeInsets.all(32),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    minWidth: constraints.maxWidth,
+                    minHeight: constraints.maxHeight,
+                  ),
+                  child: Center(
+                    child: SizedBox(
+                      width: 480,
+                      child: Card(
+                        child: Padding(
+                          padding: const EdgeInsets.all(32),
+                          child: Form(
+                            key: _formKey,
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                Icon(
+                                  Icons.swap_horiz_rounded,
+                                  size: 48,
+                                  color: theme.colorScheme.primary,
+                                ),
+                                const SizedBox(height: 16),
+                                Text(
+                                  'SEO 301 Redirects',
+                                  textAlign: TextAlign.center,
+                                  style:
+                                      theme.textTheme.headlineSmall?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  'Sign in with your Cloudflare API token to manage bulk redirects.',
+                                  textAlign: TextAlign.center,
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    color: theme.colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                                const SizedBox(height: 24),
+                                const _ThemeSelector(),
+                                const SizedBox(height: 24),
+                                TextFormField(
+                                  controller: _tokenController,
+                                  obscureText: _obscureToken,
+                                  decoration: InputDecoration(
+                                    labelText: 'Cloudflare API Token',
+                                    hintText: 'Paste your API token here',
+                                    border: const OutlineInputBorder(),
+                                    suffixIcon: IconButton(
+                                      icon: Icon(
+                                        _obscureToken
+                                            ? Icons.visibility_outlined
+                                            : Icons.visibility_off_outlined,
+                                      ),
+                                      onPressed: () {
+                                        setState(
+                                          () => _obscureToken = !_obscureToken,
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                  validator: (value) {
+                                    if (value == null || value.trim().isEmpty) {
+                                      return 'API token is required.';
+                                    }
+                                    return null;
+                                  },
+                                  onFieldSubmitted: (_) => _submit(),
+                                ),
+                                const SizedBox(height: 16),
+                                _PublicIpPanel(
+                                  ips: _publicIps,
+                                  loading: _loadingIps,
+                                  onRefresh: _loadPublicIps,
+                                ),
+                                const SizedBox(height: 16),
+                                FilledButton(
+                                  onPressed:
+                                      provider.isLoading ? null : _submit,
+                                  child: provider.isLoading
+                                      ? const SizedBox(
+                                          height: 20,
+                                          width: 20,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                          ),
+                                        )
+                                      : const Text('Connect'),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  'User tokens create Page Rules. Account (cfat_) tokens use Redirect Rules.',
+                                  textAlign: TextAlign.center,
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: theme.colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  'Token is kept in memory only — never saved to disk.',
+                                  textAlign: TextAlign.center,
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: theme.colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                          onPressed: () {
-                            setState(() => _obscureToken = !_obscureToken);
-                          },
                         ),
-                      ),
-                      validator: (value) {
-                        if (value == null || value.trim().isEmpty) {
-                          return 'API token is required.';
-                        }
-                        return null;
-                      },
-                      onFieldSubmitted: (_) => _submit(),
-                    ),
-                    const SizedBox(height: 16),
-                    _PublicIpPanel(
-                      ips: _publicIps,
-                      loading: _loadingIps,
-                      onRefresh: _loadPublicIps,
-                    ),
-                    const SizedBox(height: 16),
-                    FilledButton(
-                      onPressed: provider.isLoading ? null : _submit,
-                      child: provider.isLoading
-                          ? const SizedBox(
-                              height: 20,
-                              width: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Text('Connect'),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'User tokens create Page Rules. Account (cfat_) tokens use Redirect Rules.',
-                      textAlign: TextAlign.center,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Token is kept in memory only — never saved to disk.',
-                      textAlign: TextAlign.center,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                        ],
                       ),
                     ),
                   ),
                 ),
-              ),
-            ),
+              );
+            },
           ),
         ),
       ),
