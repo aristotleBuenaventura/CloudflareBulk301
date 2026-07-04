@@ -146,8 +146,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'cfat_ account tokens → Redirect Rules. '
-                      'cfut_ user tokens → Page Rules.',
+                      'User tokens create Page Rules. Account (cfat_) tokens use Redirect Rules.',
                       textAlign: TextAlign.center,
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,

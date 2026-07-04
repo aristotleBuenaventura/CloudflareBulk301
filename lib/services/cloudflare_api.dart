@@ -194,36 +194,40 @@ class CloudflareApi {
     required String zoneId,
     required String sourceDomain,
     required String targetBaseUrl,
-    required bool preservePath,
-    required bool preserveQueryString,
+    required bool wildcard,
   }) async {
     final target = _normalizeTargetUrl(targetBaseUrl);
 
     if (_token.startsWith('cfat_')) {
+      await _removeAllPageRulesForDomain(zoneId, sourceDomain);
       return _createDynamicRedirectRule(
         zoneId: zoneId,
         sourceDomain: sourceDomain,
         target: target,
-        preservePath: preservePath,
-        preserveQueryString: preserveQueryString,
+        wildcard: wildcard,
       );
     }
 
     try {
+      try {
+        await _removeBulk301RedirectRules(zoneId);
+      } catch (_) {
+        // Ignore — may not have Redirect Rules on this zone.
+      }
       return await _createPageRule(
         zoneId: zoneId,
         sourceDomain: sourceDomain,
         target: target,
-        preservePath: preservePath,
+        wildcard: wildcard,
       );
     } on CloudflareApiException catch (error) {
       if (_isPageRulesUnsupportedMessage(error.message)) {
+        await _removeAllPageRulesForDomain(zoneId, sourceDomain);
         return _createDynamicRedirectRule(
           zoneId: zoneId,
           sourceDomain: sourceDomain,
           target: target,
-          preservePath: preservePath,
-          preserveQueryString: preserveQueryString,
+          wildcard: wildcard,
         );
       }
       rethrow;
@@ -234,42 +238,16 @@ class CloudflareApi {
     required String zoneId,
     required String sourceDomain,
     required String target,
-    required bool preservePath,
+    required bool wildcard,
   }) async {
     final domain = _normalizeDomain(sourceDomain);
-    final pattern = _pageRulePattern(domain);
-    final forwardUrl = _pageRuleForwardUrl(target, preservePath);
+    final pattern = _pageRulePattern(domain, wildcard);
+    final forwardUrl = _pageRuleForwardUrl(target, wildcard);
+    final summary = _redirectSummary(domain, target, wildcard);
+
+    await _removeAllPageRulesForDomain(zoneId, domain);
 
     final existingRules = await _listPageRules(zoneId);
-    final existing = _findForwardingPageRuleByPattern(existingRules, pattern);
-
-    if (existing != null) {
-      final ruleId = existing['id'] as String;
-      final priority = existing['priority'] as int? ?? 1;
-      await _updatePageRule(
-        zoneId: zoneId,
-        ruleId: ruleId,
-        pattern: pattern,
-        forwardUrl: forwardUrl,
-        priority: priority,
-      );
-
-      final verified = await _findActivePageRuleAfterCreate(
-        zoneId,
-        pattern,
-        forwardUrl,
-      );
-      if (verified == null) {
-        throw CloudflareApiException(
-          'Cloudflare did not update the Page Rule.',
-        );
-      }
-
-      return RedirectCreateResult.updated(
-        'Page Rule updated: $pattern → $forwardUrl. Check Rules → Page Rules.',
-      );
-    }
-
     final priority = _nextPageRulePriority(existingRules);
 
     final response = await http.post(
@@ -321,7 +299,7 @@ class CloudflareApi {
     }
 
     return RedirectCreateResult.created(
-      'Page Rule created: $pattern → $forwardUrl. Check Rules → Page Rules.',
+      'Page Rule created: $summary. Check Rules → Page Rules.',
     );
   }
 
@@ -329,54 +307,39 @@ class CloudflareApi {
     required String zoneId,
     required String sourceDomain,
     required String target,
-    required bool preservePath,
-    required bool preserveQueryString,
+    required bool wildcard,
   }) async {
     final domain = _normalizeDomain(sourceDomain);
-    final pattern = _pageRulePattern(domain);
-    final forwardUrl = _pageRuleForwardUrl(target, preservePath);
-    final targetExpression = preservePath
-        ? 'concat("$target", http.request.uri.path)'
-        : '"$target"';
+    final summary = _redirectSummary(domain, target, wildcard);
+    final targetUrl = _dynamicTargetUrl(target, wildcard);
+    final expression = _redirectExpression(domain, wildcard);
 
-    final entrypoint = await _getRedirectEntrypoint(zoneId);
+    await _removeAllPageRulesForDomain(zoneId, domain);
+    try {
+      await _removeBulk301RedirectRules(zoneId);
+    } on CloudflareApiException catch (error) {
+      if (!_isRedirectRulesPermissionError(error)) {
+        rethrow;
+      }
+    }
+
     final rulePayload = {
       'description': 'Bulk 301 redirect (Cloudflare Bulk301 app)',
-      'expression': 'true',
+      'expression': expression,
       'action': 'redirect',
       'action_parameters': {
         'from_value': {
           'status_code': 301,
-          'target_url': {
-            'expression': targetExpression,
-          },
-          'preserve_query_string': preserveQueryString,
+          'target_url': targetUrl,
+          'preserve_query_string': wildcard,
         },
       },
       'enabled': true,
     };
 
+    final entrypoint = await _getRedirectEntrypoint(zoneId);
     if (entrypoint != null) {
       final rulesetId = entrypoint['id'] as String;
-      final existingRules =
-          (entrypoint['rules'] as List<dynamic>? ?? []).cast<Map<String, dynamic>>();
-      final existing = _findFullDomainRedirectRule(existingRules);
-
-      if (existing != null) {
-        final ruleId = existing['id'] as String;
-        await _updateDynamicRedirectRule(
-          zoneId: zoneId,
-          rulesetId: rulesetId,
-          ruleId: ruleId,
-          rule: rulePayload,
-        );
-
-        return RedirectCreateResult.updated(
-          'Redirect Rule updated: $pattern → $forwardUrl.\n'
-          'Check Rules → Overview → Redirect Rules.',
-        );
-      }
-
       await _addRuleToRuleset(
         zoneId,
         rulesetId,
@@ -397,16 +360,17 @@ class CloudflareApi {
     final verifiedEntrypoint = await _getRedirectEntrypoint(zoneId);
     final verifiedRules = (verifiedEntrypoint?['rules'] as List<dynamic>? ?? [])
         .cast<Map<String, dynamic>>();
-    if (!_hasMatchingDynamicRule(verifiedRules, target, preservePath)) {
+    if (!_hasMatchingDynamicRule(verifiedRules, target, wildcard)) {
       throw CloudflareApiException(
         'Cloudflare did not save the Redirect Rule. '
         'Ensure your token has Zone → Single Redirect → Edit permission.',
+        statusCode: 403,
       );
     }
 
     Map<String, dynamic>? matchingRule;
     for (final rule in verifiedRules) {
-      if (_isDuplicateDynamicRule(rule, target, preservePath)) {
+      if (_isDuplicateDynamicRule(rule, target, wildcard)) {
         matchingRule = rule;
         break;
       }
@@ -420,88 +384,16 @@ class CloudflareApi {
     );
   }
 
-  Future<void> _updatePageRule({
-    required String zoneId,
-    required String ruleId,
-    required String pattern,
-    required String forwardUrl,
-    required int priority,
-  }) async {
-    final response = await http.patch(
-      Uri.parse('$_baseUrl/zones/$zoneId/pagerules/$ruleId'),
-      headers: _headers,
-      body: jsonEncode({
-        'targets': [
-          {
-            'target': 'url',
-            'constraint': {
-              'operator': 'matches',
-              'value': pattern,
-            },
-          },
-        ],
-        'actions': [
-          {
-            'id': 'forwarding_url',
-            'value': {
-              'url': forwardUrl,
-              'status_code': 301,
-            },
-          },
-        ],
-        'priority': priority,
-        'status': 'active',
-      }),
-    );
+  Future<void> _removeAllPageRulesForDomain(
+    String zoneId,
+    String sourceDomain,
+  ) async {
+    final domain = _normalizeDomain(sourceDomain);
+    final rules = await _listPageRules(zoneId);
+    final deleted = <String>{};
 
-    final body = _decode(response);
-    if (!body.success) {
-      throw CloudflareApiException(
-        _firstError(body) ?? 'Failed to update Page Rule.',
-        statusCode: response.statusCode,
-      );
-    }
-  }
-
-  Future<void> _updateDynamicRedirectRule({
-    required String zoneId,
-    required String rulesetId,
-    required String ruleId,
-    required Map<String, dynamic> rule,
-  }) async {
-    final response = await http.put(
-      Uri.parse('$_baseUrl/zones/$zoneId/rulesets/$rulesetId/rules/$ruleId'),
-      headers: _headers,
-      body: jsonEncode(rule),
-    );
-
-    final body = _decode(response);
-    if (!body.success) {
-      throw CloudflareApiException(
-        _firstError(body) ?? 'Failed to update redirect rule.',
-        statusCode: response.statusCode,
-      );
-    }
-  }
-
-  Map<String, dynamic>? _findForwardingPageRuleByPattern(
-    List<Map<String, dynamic>> rules,
-    String pattern,
-  ) {
     for (final rule in rules) {
       if (rule['status'] != 'active') {
-        continue;
-      }
-
-      final targets = rule['targets'] as List<dynamic>? ?? [];
-      final matchesPattern = targets.any((target) {
-        final map = target as Map<String, dynamic>;
-        final constraint = map['constraint'] as Map<String, dynamic>?;
-        return _normalizePattern(constraint?['value'] as String?) ==
-            _normalizePattern(pattern);
-      });
-
-      if (!matchesPattern) {
         continue;
       }
 
@@ -509,33 +401,115 @@ class CloudflareApi {
       final hasForwarding = actions.any(
         (action) => (action as Map<String, dynamic>)['id'] == 'forwarding_url',
       );
-
-      if (hasForwarding) {
-        return rule;
-      }
-    }
-
-    return null;
-  }
-
-  Map<String, dynamic>? _findFullDomainRedirectRule(
-    List<Map<String, dynamic>> rules,
-  ) {
-    for (final rule in rules) {
-      if (rule['action'] != 'redirect') {
+      if (!hasForwarding) {
         continue;
       }
 
-      final expression = rule['expression'] as String?;
-      final description = rule['description'] as String? ?? '';
-      if (expression == 'true' ||
-          description.contains('Cloudflare Bulk301 app') ||
-          description.contains('Bulk 301 redirect')) {
-        return rule;
+      final targets = rule['targets'] as List<dynamic>? ?? [];
+      final matchesDomain = targets.any((target) {
+        final map = target as Map<String, dynamic>;
+        final constraint = map['constraint'] as Map<String, dynamic>?;
+        final pattern = constraint?['value'] as String?;
+        return _isPageRulePatternForDomain(pattern, domain);
+      });
+
+      if (!matchesDomain) {
+        continue;
       }
+
+      final ruleId = rule['id'] as String?;
+      if (ruleId == null || !deleted.add(ruleId)) {
+        continue;
+      }
+
+      await _deletePageRule(zoneId, ruleId);
+    }
+  }
+
+  Future<void> _removeBulk301RedirectRules(String zoneId) async {
+    final entrypoint = await _getRedirectEntrypoint(zoneId);
+    if (entrypoint == null) {
+      return;
     }
 
-    return null;
+    final rulesetId = entrypoint['id'] as String;
+    final rules =
+        (entrypoint['rules'] as List<dynamic>? ?? []).cast<Map<String, dynamic>>();
+
+    for (final rule in rules) {
+      if (!_isBulk301RedirectRule(rule)) {
+        continue;
+      }
+
+      final ruleId = rule['id'] as String?;
+      if (ruleId == null) {
+        continue;
+      }
+
+      await _deleteRedirectRule(zoneId, rulesetId, ruleId);
+    }
+  }
+
+  Future<void> _deletePageRule(String zoneId, String ruleId) async {
+    final response = await http.delete(
+      Uri.parse('$_baseUrl/zones/$zoneId/pagerules/$ruleId'),
+      headers: _headers,
+    );
+
+    final body = _decode(response);
+    if (!body.success) {
+      throw CloudflareApiException(
+        _firstError(body) ?? 'Failed to remove Page Rule.',
+        statusCode: response.statusCode,
+      );
+    }
+  }
+
+  Future<void> _deleteRedirectRule(
+    String zoneId,
+    String rulesetId,
+    String ruleId,
+  ) async {
+    final response = await http.delete(
+      Uri.parse('$_baseUrl/zones/$zoneId/rulesets/$rulesetId/rules/$ruleId'),
+      headers: _headers,
+    );
+
+    final body = _decode(response);
+    if (!body.success) {
+      throw CloudflareApiException(
+        _firstError(body) ?? 'Failed to remove Redirect Rule.',
+        statusCode: response.statusCode,
+      );
+    }
+  }
+
+  bool _isPageRulePatternForDomain(String? pattern, String domain) {
+    if (pattern == null) {
+      return false;
+    }
+
+    final normalized = _normalizePattern(pattern) ?? '';
+    final d = domain.toLowerCase();
+    final candidates = {
+      _normalizePattern('*$d/*'),
+      _normalizePattern('https://$d/*'),
+      _normalizePattern('$d/*'),
+      _normalizePattern('http://$d/*'),
+      _normalizePattern('*$d*'),
+    };
+
+    return candidates.contains(normalized);
+  }
+
+  bool _isBulk301RedirectRule(Map<String, dynamic> rule) {
+    if (rule['action'] != 'redirect') {
+      return false;
+    }
+
+    final description = rule['description'] as String? ?? '';
+    return description.contains('Cloudflare Bulk301 app') ||
+        description.contains('Bulk 301 redirect');
   }
 
   Future<void> _createRedirectRuleset(
@@ -556,7 +530,8 @@ class CloudflareApi {
     final body = _decode(response);
     if (!body.success) {
       throw CloudflareApiException(
-        _firstError(body) ?? 'Failed to create redirect rule.',
+        _formatRulesetError(body, response.statusCode) ??
+            'Failed to create redirect rule.',
         statusCode: response.statusCode,
       );
     }
@@ -576,7 +551,8 @@ class CloudflareApi {
     final body = _decode(response);
     if (!body.success) {
       throw CloudflareApiException(
-        _firstError(body) ?? 'Failed to add redirect rule.',
+        _formatRulesetError(body, response.statusCode) ??
+            'Failed to add redirect rule.',
         statusCode: response.statusCode,
       );
     }
@@ -585,17 +561,17 @@ class CloudflareApi {
   bool _hasMatchingDynamicRule(
     List<Map<String, dynamic>> rules,
     String target,
-    bool preservePath,
+    bool wildcard,
   ) {
     return rules.any(
-      (rule) => _isDuplicateDynamicRule(rule, target, preservePath),
+      (rule) => _isDuplicateDynamicRule(rule, target, wildcard),
     );
   }
 
   bool _isDuplicateDynamicRule(
     Map<String, dynamic> rule,
     String target,
-    bool preservePath,
+    bool wildcard,
   ) {
     if (rule['action'] != 'redirect') {
       return false;
@@ -604,16 +580,17 @@ class CloudflareApi {
     final params = rule['action_parameters'] as Map<String, dynamic>?;
     final fromValue = params?['from_value'] as Map<String, dynamic>?;
     final targetUrl = fromValue?['target_url'] as Map<String, dynamic>?;
-    final expression = targetUrl?['expression'] as String?;
-    if (expression == null) {
+    if (targetUrl == null) {
       return false;
     }
 
-    final expected = preservePath
-        ? 'concat("$target", http.request.uri.path)'
-        : '"$target"';
+    if (wildcard) {
+      return targetUrl['expression'] ==
+          'concat("$target", http.request.uri.path)';
+    }
 
-    return expression == expected;
+    return _normalizeForwardUrl(targetUrl['value'] as String?) ==
+        _normalizeForwardUrl(target);
   }
 
   bool _isPageRulesUnsupportedError(_ApiResponse body, String? message) {
@@ -649,6 +626,13 @@ class CloudflareApi {
       if (response.statusCode == 404 ||
           (message?.toLowerCase().contains('not found') ?? false)) {
         return null;
+      }
+      if (_isPermissionStatusCode(response.statusCode, message)) {
+        throw CloudflareApiException(
+          _formatRulesetError(body, response.statusCode) ??
+              'Missing Redirect Rules permission.',
+          statusCode: response.statusCode,
+        );
       }
       return null;
     }
@@ -753,13 +737,41 @@ class CloudflareApi {
     return highest + 1;
   }
 
-  String _pageRulePattern(String domain) => '*$domain/*';
+  String _pageRulePattern(String domain, bool wildcard) {
+    if (wildcard) {
+      return '*$domain/*';
+    }
+    return '$domain/*';
+  }
 
-  String _pageRuleForwardUrl(String target, bool preservePath) {
-    if (preservePath) {
+  String _redirectExpression(String domain, bool wildcard) {
+    if (wildcard) {
+      return 'true';
+    }
+    return '(http.host eq "$domain")';
+  }
+
+  String _pageRuleForwardUrl(String target, bool wildcard) {
+    if (wildcard) {
       return '$target/\$2';
     }
-    return '$target/';
+    return target;
+  }
+
+  Map<String, dynamic> _dynamicTargetUrl(String target, bool wildcard) {
+    if (wildcard) {
+      return {
+        'expression': 'concat("$target", http.request.uri.path)',
+      };
+    }
+    return {'value': target};
+  }
+
+  String _redirectSummary(String domain, String target, bool wildcard) {
+    if (wildcard) {
+      return '*$domain/* → $target/\$2';
+    }
+    return '$domain/* → $target';
   }
 
   _ApiResponse _decode(http.Response response) {
@@ -774,6 +786,34 @@ class CloudflareApi {
       errors: (decoded['errors'] as List<dynamic>? ?? [])
           .cast<Map<String, dynamic>>(),
     );
+  }
+
+  String? _formatRulesetError(_ApiResponse body, int statusCode) {
+    final message = _firstError(body);
+    if (_isPermissionStatusCode(statusCode, message)) {
+      return 'Missing Redirect Rules permission. '
+          'Add Zone → Single Redirect → Edit (or Dynamic URL Redirects Write) '
+          'to your API token.\n\nCloudflare: ${message ?? 'HTTP $statusCode'}';
+    }
+    return message;
+  }
+
+  bool _isRedirectRulesPermissionError(CloudflareApiException error) {
+    return _isPermissionStatusCode(error.statusCode, error.message);
+  }
+
+  bool _isPermissionStatusCode(int? statusCode, String? message) {
+    if (statusCode == 401 || statusCode == 403) {
+      return true;
+    }
+
+    final lower = message?.toLowerCase() ?? '';
+    return lower.contains('authentication') ||
+        lower.contains('unauthorized') ||
+        lower.contains('permission') ||
+        lower.contains('not allowed') ||
+        lower.contains('forbidden') ||
+        lower.contains('missing the permissions');
   }
 
   String? _firstError(_ApiResponse body) {

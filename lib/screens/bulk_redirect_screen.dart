@@ -19,6 +19,7 @@ class _BulkRedirectScreenState extends State<BulkRedirectScreen> {
   final _targetController = TextEditingController();
   final _domainController = TextEditingController();
   final _domains = <String>[];
+  var _wildcard = true;
   var _progress = 0;
   var _progressTotal = 0;
 
@@ -116,6 +117,7 @@ class _BulkRedirectScreenState extends State<BulkRedirectScreen> {
     await provider.applyBulkRedirects(
       domains: _domains,
       targetUrl: target,
+      wildcard: _wildcard,
       onProgress: (completed, total) {
         if (mounted) {
           setState(() {
@@ -178,9 +180,11 @@ class _BulkRedirectScreenState extends State<BulkRedirectScreen> {
                       provider.isAccountToken
                           ? '⚠️ cfat_ token: rules go to Rules → Overview → Redirect Rules.\n'
                               'Existing 301 rules will be overwritten.'
-                          : 'Using User token: creates/updates Page Rules like *domain.com/* → '
-                              r'https://target.com/$2. Works even if zone is pending — '
-                              'redirect activates once nameservers are valid.',
+                          : _wildcard
+                              ? 'Using User token: Page Rule *domain.com/* → '
+                                  r'https://target.com/$2'
+                              : 'Using User token: Page Rule domain.com/* → '
+                                  'https://target.com (no path capture)',
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: theme.colorScheme.onPrimaryContainer,
                       ),
@@ -199,6 +203,26 @@ class _BulkRedirectScreenState extends State<BulkRedirectScreen> {
                       border: OutlineInputBorder(),
                       prefixIcon: Icon(Icons.link),
                     ),
+                  ),
+                  const SizedBox(height: 4),
+                  CheckboxListTile(
+                    contentPadding: EdgeInsets.zero,
+                    controlAffinity: ListTileControlAffinity.leading,
+                    title: const Text('Wildcard'),
+                    subtitle: Text(
+                      _wildcard
+                          ? r'*old.com/* → https://new.com/$2'
+                          : r'old.com/* → https://new.com',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    value: _wildcard,
+                    onChanged: provider.isLoading
+                        ? null
+                        : (value) {
+                            setState(() => _wildcard = value ?? true);
+                          },
                   ),
                   const Divider(height: 32),
                   Row(
