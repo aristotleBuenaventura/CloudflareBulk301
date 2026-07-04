@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../providers/app_provider.dart';
 import '../services/public_ip_service.dart';
+import '../widgets/frozen_scroll_viewport.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -65,20 +66,23 @@ class _LoginScreenState extends State<LoginScreen> {
 
     return Scaffold(
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(32),
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 480),
-              child: Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(32),
-                  child: Form(
-                    key: _formKey,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
+        child: FrozenScrollViewport(
+          minWidth: 544,
+          minHeight: 640,
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(32, 32, 32, 32),
+            child: Center(
+              child: SizedBox(
+                width: 480,
+                child: Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(32),
+                    child: Form(
+                      key: _formKey,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
                     Icon(
                       Icons.swap_horiz_rounded,
                       size: 48,
@@ -162,7 +166,8 @@ class _LoginScreenState extends State<LoginScreen> {
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
                     ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -243,11 +248,12 @@ class _PublicIpPanel extends StatelessWidget {
             children: [
               Icon(Icons.public, size: 18, color: theme.colorScheme.primary),
               const SizedBox(width: 8),
-              Text(
-                'Add these IPs to your token allowlist',
-                style: theme.textTheme.labelLarge,
+              Expanded(
+                child: Text(
+                  'Add these IPs to your token allowlist',
+                  style: theme.textTheme.labelLarge,
+                ),
               ),
-              const Spacer(),
               IconButton(
                 tooltip: 'Refresh IPs',
                 onPressed: loading ? null : onRefresh,
