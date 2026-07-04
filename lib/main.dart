@@ -1,12 +1,23 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:window_manager/window_manager.dart';
 
+import 'constants/app_window_sizes.dart';
 import 'providers/app_provider.dart';
 import 'screens/bulk_redirect_screen.dart';
 import 'screens/login_screen.dart';
 import 'services/session_service.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  if (Platform.isMacOS || Platform.isWindows || Platform.isLinux) {
+    await windowManager.ensureInitialized();
+    await windowManager.setMinimumSize(AppWindowSizes.login);
+  }
+
   runApp(const Seo301RedirectsApp());
 }
 

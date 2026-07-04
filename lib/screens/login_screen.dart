@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../constants/app_window_sizes.dart';
 import '../providers/app_provider.dart';
 import '../services/public_ip_service.dart';
-import '../widgets/frozen_scroll_viewport.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -22,6 +22,9 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      AppWindowSizes.applyLoginMinimum();
+    });
     _loadPublicIps();
   }
 
@@ -66,22 +69,19 @@ class _LoginScreenState extends State<LoginScreen> {
 
     return Scaffold(
       body: SafeArea(
-        child: FrozenScrollViewport(
-          minWidth: 544,
-          minHeight: 640,
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              return SizedBox(
-                width: constraints.maxWidth,
-                height: constraints.maxHeight,
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 32),
-                      child: SizedBox(
-                        width: 480,
-                        child: Card(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return SizedBox(
+              width: constraints.maxWidth,
+              height: constraints.maxHeight,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 32),
+                    child: SizedBox(
+                      width: 480,
+                      child: Card(
                           child: Padding(
                             padding: const EdgeInsets.all(32),
                             child: Form(
@@ -186,11 +186,10 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                       ),
                     ),
-                  ],
-                ),
-              );
-            },
-          ),
+                ],
+              ),
+            );
+          },
         ),
       ),
     );

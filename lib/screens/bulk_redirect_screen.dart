@@ -4,6 +4,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../constants/app_window_sizes.dart';
 import '../models/domain_result.dart';
 import '../providers/app_provider.dart';
 import '../services/csv_parser.dart';
@@ -23,6 +24,14 @@ class _BulkRedirectScreenState extends State<BulkRedirectScreen> {
   var _wildcard = true;
   var _progress = 0;
   var _progressTotal = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      AppWindowSizes.applyBulkMinimum();
+    });
+  }
 
   @override
   void dispose() {
