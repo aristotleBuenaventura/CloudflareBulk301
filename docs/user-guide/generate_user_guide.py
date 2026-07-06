@@ -191,11 +191,35 @@ def build_document() -> Document:
         "below; red boxes in the screenshots indicate exactly what to click or fill in."
     )
 
-    add_heading(doc, "Step 1: Open API Tokens in your Cloudflare profile", level=2)
+    add_heading(doc, "Step 1: Open your Cloudflare profile", level=2)
     doc.add_paragraph(
         "Log in to the Cloudflare dashboard at https://dash.cloudflare.com. "
-        "Click your profile icon (top right), then select My Profile. "
-        "In the left sidebar, click API Tokens."
+        "In the top-right corner, click your profile icon to open the account menu, "
+        "then select Profile."
+    )
+    add_red_box_note(
+        doc,
+        [
+            (
+                "Red box 1 — Profile icon",
+                "Click your profile icon in the top-right corner of the dashboard.",
+            ),
+            (
+                "Red box 2 — Profile",
+                "In the dropdown menu, click Profile to open your account settings.",
+            ),
+        ],
+    )
+    add_figure(
+        doc,
+        "fig01_dashboard_profile_menu.png",
+        1,
+        "Open the profile menu from the Cloudflare dashboard",
+    )
+
+    add_heading(doc, "Step 2: Go to API Tokens", level=2)
+    doc.add_paragraph(
+        "On the Profile page, use the left sidebar to open the API Tokens section."
     )
     add_red_box_note(
         doc,
@@ -208,12 +232,12 @@ def build_document() -> Document:
     )
     add_figure(
         doc,
-        "fig01_profile_api_tokens.png",
-        1,
-        "Navigate to API Tokens from your Cloudflare profile",
+        "fig02_profile_api_tokens.png",
+        2,
+        "Click API Tokens in the profile sidebar",
     )
 
-    add_heading(doc, "Step 2: Start creating a new token", level=2)
+    add_heading(doc, "Step 3: Start creating a new token", level=2)
     doc.add_paragraph(
         "On the User API Tokens page, click the Create Token button to begin."
     )
@@ -228,12 +252,12 @@ def build_document() -> Document:
     )
     add_figure(
         doc,
-        "fig02_create_token.png",
-        2,
+        "fig03_create_token.png",
+        3,
         "Click Create Token on the User API Tokens page",
     )
 
-    add_heading(doc, "Step 3: Choose Custom token", level=2)
+    add_heading(doc, "Step 4: Choose Custom token", level=2)
     doc.add_paragraph(
         "Cloudflare offers pre-built templates, but this app requires a custom token "
         "with specific permissions. Under Custom token, click Get started."
@@ -249,12 +273,12 @@ def build_document() -> Document:
     )
     add_figure(
         doc,
-        "fig03_custom_token.png",
-        3,
+        "fig04_custom_token.png",
+        4,
         "Select Custom token and click Get started",
     )
 
-    add_heading(doc, "Step 4: Name your token", level=2)
+    add_heading(doc, "Step 5: Name your token", level=2)
     doc.add_paragraph(
         "Enter a descriptive name so you can identify this token later in Cloudflare "
         "Audit Logs (for example, SEO 301 Redirects or your name)."
@@ -270,12 +294,12 @@ def build_document() -> Document:
     )
     add_figure(
         doc,
-        "fig04_token_name.png",
-        4,
+        "fig05_token_name.png",
+        5,
         "Enter a descriptive token name",
     )
 
-    add_heading(doc, "Step 5: Set the required permissions", level=2)
+    add_heading(doc, "Step 6: Set the required permissions", level=2)
     doc.add_paragraph(
         "The app needs three zone-level permissions. Click + Add more to add each row "
         "if needed, then set the dropdowns exactly as shown:"
@@ -303,12 +327,12 @@ def build_document() -> Document:
     )
     add_figure(
         doc,
-        "fig05_permissions.png",
-        5,
+        "fig06_permissions.png",
+        6,
         "Configure the three required zone permissions",
     )
 
-    add_heading(doc, "Step 6: Restrict the token to your IP address", level=2)
+    add_heading(doc, "Step 7: Restrict the token to your IP address", level=2)
     doc.add_paragraph(
         "Client IP Address Filtering limits which IP addresses can use this token. "
         "This is strongly recommended — if the token is ever exposed, it cannot be "
@@ -337,12 +361,12 @@ def build_document() -> Document:
     )
     add_figure(
         doc,
-        "fig06_ip_filtering.png",
-        6,
+        "fig07_ip_filtering.png",
+        7,
         "Configure Client IP Address Filtering for your public IP",
     )
 
-    add_heading(doc, "Step 7: Review and continue", level=2)
+    add_heading(doc, "Step 8: Review and continue", level=2)
     doc.add_paragraph(
         "Verify your token name, permissions, zone resources, and IP filter. "
         "Leave TTL (expiration) blank unless your organization requires a fixed expiry date. "
@@ -359,12 +383,12 @@ def build_document() -> Document:
     )
     add_figure(
         doc,
-        "fig07_continue_summary.png",
-        7,
+        "fig08_continue_summary.png",
+        8,
         "Review settings and click Continue to summary",
     )
 
-    add_heading(doc, "Step 8: Confirm and create the token", level=2)
+    add_heading(doc, "Step 9: Confirm and create the token", level=2)
     doc.add_paragraph(
         "The summary page shows all accounts, zones, and permissions affected by this "
         "token. Confirm that permissions include Single Redirect:Edit, Zone:Read, and "
@@ -381,12 +405,12 @@ def build_document() -> Document:
     )
     add_figure(
         doc,
-        "fig08_create_token_confirm.png",
-        8,
+        "fig09_create_token_confirm.png",
+        9,
         "Review the summary and click Create Token",
     )
 
-    add_heading(doc, "Step 9: Copy and save your token", level=2)
+    add_heading(doc, "Step 10: Copy and save your token", level=2)
     doc.add_paragraph(
         "Cloudflare displays your new API token once. Copy it immediately and store it "
         "in a secure location (password manager or secure notes). You will paste this "
@@ -407,8 +431,8 @@ def build_document() -> Document:
     )
     add_figure(
         doc,
-        "fig09_copy_token.png",
-        9,
+        "fig10_copy_token.png",
+        10,
         "Copy your API token — it is shown only once",
     )
 
@@ -421,7 +445,7 @@ def build_document() -> Document:
         "the executable."
     )
 
-    add_heading(doc, "Step 10: Download the application", level=2)
+    add_heading(doc, "Step 11: Download the application", level=2)
     doc.add_paragraph(
         f"Open the following link in your browser and download the ZIP file:\n{DOWNLOAD_URL}"
     )
@@ -440,12 +464,12 @@ def build_document() -> Document:
     )
     add_figure(
         doc,
-        "fig10_download_zip.png",
-        10,
+        "fig11_download_zip.png",
+        11,
         "Locate the downloaded ZIP file in Downloads",
     )
 
-    add_heading(doc, "Step 11: Extract the ZIP archive", level=2)
+    add_heading(doc, "Step 12: Extract the ZIP archive", level=2)
     doc.add_paragraph(
         "Right-click the ZIP file (or open it) and use Windows Extract all to unzip "
         "the contents."
@@ -461,8 +485,8 @@ def build_document() -> Document:
     )
     add_figure(
         doc,
-        "fig11_extract_all.png",
-        11,
+        "fig12_extract_all.png",
+        12,
         "Click Extract all to unzip the package",
     )
 
@@ -481,12 +505,12 @@ def build_document() -> Document:
     )
     add_figure(
         doc,
-        "fig12_extract_dialog.png",
-        12,
+        "fig13_extract_dialog.png",
+        13,
         "Confirm destination and click Extract",
     )
 
-    add_heading(doc, "Step 12: Open the Release folder", level=2)
+    add_heading(doc, "Step 13: Open the Release folder", level=2)
     doc.add_paragraph(
         "After extraction, open the SEO_301_Redirect_v1.1.0 folder, then open the "
         "Release subfolder. This folder contains the application executable and "
@@ -503,12 +527,12 @@ def build_document() -> Document:
     )
     add_figure(
         doc,
-        "fig13_release_folder.png",
-        13,
+        "fig14_release_folder.png",
+        14,
         "Open the Release folder inside the extracted package",
     )
 
-    add_heading(doc, "Step 13: Launch the application", level=2)
+    add_heading(doc, "Step 14: Launch the application", level=2)
     doc.add_paragraph(
         "Inside the Release folder, double-click SEO 301 Redirects to start the app. "
         "Do not move or delete the other files in this folder (DLLs and the data folder) "
@@ -525,8 +549,8 @@ def build_document() -> Document:
     )
     add_figure(
         doc,
-        "fig14_run_executable.png",
-        14,
+        "fig15_run_executable.png",
+        15,
         "Double-click SEO 301 Redirects to run the app",
     )
 
@@ -539,7 +563,7 @@ def build_document() -> Document:
         "token you created in Part 1 and connect."
     )
 
-    add_heading(doc, "Step 14: Paste your token and connect", level=2)
+    add_heading(doc, "Step 15: Paste your token and connect", level=2)
     doc.add_paragraph(
         "Before connecting, check the Add these IPs to your token allowlist section. "
         "If you did not add these IP addresses when creating the token, go back to "
@@ -551,7 +575,7 @@ def build_document() -> Document:
         [
             (
                 "Red box 1 — Cloudflare API Token",
-                "Paste the token you copied in Step 9 into this field. Use the eye icon to show or hide the token.",
+                "Paste the token you copied in Step 10 into this field. Use the eye icon to show or hide the token.",
             ),
             (
                 "Red box 2 — Connect",
@@ -565,8 +589,8 @@ def build_document() -> Document:
     )
     add_figure(
         doc,
-        "fig15_login_screen.png",
-        15,
+        "fig16_login_screen.png",
+        16,
         "Paste your API token and click Connect",
     )
 
@@ -579,7 +603,7 @@ def build_document() -> Document:
         "settings on the left panel; results appear on the right after you apply."
     )
 
-    add_heading(doc, "Step 15: Configure and apply redirects", level=2)
+    add_heading(doc, "Step 16: Configure and apply redirects", level=2)
     doc.add_paragraph(
         "Work through each numbered area in the screenshot:"
     )
@@ -620,8 +644,8 @@ def build_document() -> Document:
     )
     add_figure(
         doc,
-        "fig16_bulk_redirect.png",
-        16,
+        "fig17_bulk_redirect.png",
+        17,
         "Configure target domain, source domains, and apply 301 redirects",
     )
 
@@ -655,7 +679,7 @@ def build_document() -> Document:
         ),
         (
             "Permission denied",
-            "Re-check Part 1, Step 5 — all three permissions must be set correctly.",
+            "Re-check Part 1, Step 6 — all three permissions must be set correctly.",
         ),
         (
             "App will not start",
