@@ -71,6 +71,10 @@ class AppProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Max concurrent Cloudflare API jobs. High enough for speed; capped to
+  /// reduce rate-limit risk on large lists.
+  static const int _bulkConcurrency = 25;
+
   Future<void> applyBulkRedirects({
     required List<String> domains,
     required String targetUrl,
@@ -97,8 +101,9 @@ class AppProvider extends ChangeNotifier {
 
     final api = CloudflareApi(token);
     var completed = 0;
+    final total = _results.length;
 
-    for (var i = 0; i < _results.length; i++) {
+    Future<void> processIndex(int i) async {
       final domain = _results[i].domain;
 
       try {
@@ -145,16 +150,49 @@ class AppProvider extends ChangeNotifier {
       }
 
       completed++;
-      onProgress?.call(completed, _results.length);
+      onProgress?.call(completed, total);
       notifyListeners();
-
-      if (i < _results.length - 1) {
-        await Future<void>.delayed(const Duration(milliseconds: 250));
-      }
     }
+
+    await _runConcurrent(
+      total: total,
+      concurrency: _bulkConcurrency,
+      run: processIndex,
+    );
 
     _setLoading(false);
     notifyListeners();
+  }
+
+  /// Runs [run] for indices `0..total-1` with up to [concurrency] in flight.
+  Future<void> _runConcurrent({
+    required int total,
+    required int concurrency,
+    required Future<void> Function(int index) run,
+  }) async {
+    if (total == 0) {
+      return;
+    }
+
+    final limit = concurrency < 1 ? 1 : concurrency;
+    var next = 0;
+
+    Future<void> worker() async {
+      while (true) {
+        final i = next;
+        if (i >= total) {
+          return;
+        }
+        next++;
+        await run(i);
+      }
+    }
+
+    final workers = List.generate(
+      total < limit ? total : limit,
+      (_) => worker(),
+    );
+    await Future.wait(workers);
   }
 
   void clearResults() {
