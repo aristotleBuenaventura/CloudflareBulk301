@@ -42,16 +42,30 @@ class _BulkRedirectScreenState extends State<BulkRedirectScreen> {
   }
 
   void _addDomain() {
-    final domain = _domainController.text.trim();
-    if (domain.isEmpty) {
+    final parsed = CsvParser.parsePastedDomains(_domainController.text);
+    if (parsed.isEmpty) {
       return;
     }
+
+    var added = 0;
     setState(() {
-      if (!_domains.contains(domain)) {
-        _domains.add(domain);
+      for (final domain in parsed) {
+        if (!_domains.contains(domain)) {
+          _domains.add(domain);
+          added++;
+        }
       }
       _domainController.clear();
     });
+
+    if (!mounted || added == 0) {
+      return;
+    }
+    if (parsed.length > 1) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Added $added domain(s).')),
+      );
+    }
   }
 
   void _removeDomain(String domain) {
@@ -252,15 +266,21 @@ class _BulkRedirectScreenState extends State<BulkRedirectScreen> {
                 ),
                 const SizedBox(height: 8),
                 Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Expanded(
                       child: TextField(
                         controller: _domainController,
+                        minLines: 1,
+                        maxLines: 6,
                         decoration: const InputDecoration(
-                          hintText: 'olddomain.com',
+                          hintText:
+                              'olddomain.com — or paste a column from Sheets/Excel',
                           border: OutlineInputBorder(),
                         ),
-                        onSubmitted: (_) => _addDomain(),
+                        onSubmitted: provider.isLoading
+                            ? null
+                            : (_) => _addDomain(),
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -278,7 +298,8 @@ class _BulkRedirectScreenState extends State<BulkRedirectScreen> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'CSV: one domain per line, or a column named "domain".',
+                  'Paste multiple domains from Google Sheets/Excel, or upload a CSV '
+                  '(one domain per line, or a column named "domain").',
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
