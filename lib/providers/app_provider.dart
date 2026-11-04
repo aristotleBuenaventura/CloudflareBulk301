@@ -1,7 +1,8 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../models/domain_result.dart';
+import '../services/canonical_parser.dart';
+import '../services/canonical_worker_source.dart';
 import '../services/cloudflare_api.dart';
 import '../services/session_service.dart';
 
@@ -13,6 +14,7 @@ class AppProvider extends ChangeNotifier {
   bool _isLoading = false;
   String? _errorMessage;
   List<DomainResult> _results = [];
+  List<DomainResult> _canonicalResults = [];
   ThemeMode _themeMode = ThemeMode.light;
 
   bool get isAuthenticated => _session.isAuthenticated;
@@ -36,6 +38,9 @@ class AppProvider extends ChangeNotifier {
   String? get errorMessage => _errorMessage;
 
   List<DomainResult> get results => List.unmodifiable(_results);
+
+  List<DomainResult> get canonicalResults =>
+      List.unmodifiable(_canonicalResults);
 
   Future<bool> login(String apiToken) async {
     _setLoading(true);
@@ -67,6 +72,7 @@ class AppProvider extends ChangeNotifier {
   void logout() {
     _session.endSession();
     _results = [];
+    _canonicalResults = [];
     _errorMessage = null;
     notifyListeners();
   }
@@ -164,6 +170,186 @@ class AppProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> applyCanonicalRules({
+    required String leftText,
+    required String rightText,
+    void Function(int completed, int total)? onProgress,
+  }) async {
+    final token = _session.apiToken;
+    if (token == null) {
+      throw StateError('Not authenticated.');
+    }
+
+    final rules = CanonicalParser.parse(
+      leftText: leftText,
+      rightText: rightText,
+    );
+    if (rules.isEmpty) {
+      throw ArgumentError('No valid source URLs found.');
+    }
+
+    final byHost = <String, List<CanonicalRule>>{};
+    for (final rule in rules) {
+      final host = rule.hostname;
+      if (host.isEmpty) {
+        continue;
+      }
+      byHost.putIfAbsent(host, () => []).add(rule);
+    }
+
+    final hosts = byHost.keys.toList()..sort();
+    _canonicalResults = [
+      DomainResult(domain: 'Worker: ${CanonicalWorkerSource.scriptName}'),
+      ...hosts.map((host) => DomainResult(domain: host)),
+    ];
+    _setLoading(true);
+    _errorMessage = null;
+    notifyListeners();
+
+    final api = CloudflareApi(token);
+    final total = _canonicalResults.length;
+    var completed = 0;
+
+    void bumpProgress() {
+      completed++;
+      onProgress?.call(completed, total);
+      notifyListeners();
+    }
+
+    String? accountId;
+    try {
+      accountId = await api.resolveAccountId();
+      final existing = await api.getCanonicalMap(accountId);
+      final merged = Map<String, String>.from(existing);
+      for (final rule in rules) {
+        merged[rule.sourceUrl] = rule.canonicalUrl;
+        // Domain-root rules also apply to every page on that host.
+        if (_isDomainRoot(rule.sourceUrl)) {
+          merged['__host__:${rule.hostname}'] = rule.canonicalUrl;
+        }
+      }
+
+      await api.uploadCanonicalWorker(
+        accountId: accountId,
+        canonicalMap: merged,
+      );
+
+      _canonicalResults[0] = _canonicalResults[0].copyWith(
+        status: DomainResultStatus.success,
+        message:
+            'Worker uploaded with ${merged.length} URL mapping(s) '
+            '(+${rules.length} from this apply).',
+      );
+    } on CloudflareApiException catch (error) {
+      _canonicalResults[0] = _canonicalResults[0].copyWith(
+        status: DomainResultStatus.failed,
+        message: error.message,
+      );
+      for (var i = 1; i < _canonicalResults.length; i++) {
+        _canonicalResults[i] = _canonicalResults[i].copyWith(
+          status: DomainResultStatus.failed,
+          message: 'Skipped — Worker upload failed.',
+        );
+      }
+      bumpProgress();
+      for (var i = 1; i < total; i++) {
+        bumpProgress();
+      }
+      _setLoading(false);
+      notifyListeners();
+      return;
+    } catch (error) {
+      _canonicalResults[0] = _canonicalResults[0].copyWith(
+        status: DomainResultStatus.failed,
+        message: error.toString(),
+      );
+      for (var i = 1; i < _canonicalResults.length; i++) {
+        _canonicalResults[i] = _canonicalResults[i].copyWith(
+          status: DomainResultStatus.failed,
+          message: 'Skipped — Worker upload failed.',
+        );
+      }
+      bumpProgress();
+      for (var i = 1; i < total; i++) {
+        bumpProgress();
+      }
+      _setLoading(false);
+      notifyListeners();
+      return;
+    }
+
+    bumpProgress();
+
+    Future<void> processHost(int resultIndex) async {
+      final host = _canonicalResults[resultIndex].domain;
+      final hostRules = byHost[host] ?? const <CanonicalRule>[];
+
+      try {
+        final zone = await api.findZone(host);
+        if (zone == null) {
+          _canonicalResults[resultIndex] = _canonicalResults[resultIndex]
+              .copyWith(
+            status: DomainResultStatus.failed,
+            message: 'Zone not found for "$host". '
+                'Add the domain in Cloudflare and ensure the token '
+                'includes All zones.',
+          );
+        } else {
+          final result = await api.ensureCanonicalRoute(
+            zoneId: zone.id,
+            hostname: host,
+          );
+
+          final sample = hostRules
+              .take(3)
+              .map((r) => '${r.sourceUrl} → ${r.canonicalUrl}')
+              .join('\n');
+          final more = hostRules.length > 3
+              ? '\n…and ${hostRules.length - 3} more'
+              : '';
+
+          var message =
+              '${result.message}\n${hostRules.length} canonical URL(s):\n$sample$more';
+          if (zone.pendingNote.isNotEmpty) {
+            message = '$message\n${zone.pendingNote}';
+          }
+
+          _canonicalResults[resultIndex] = _canonicalResults[resultIndex]
+              .copyWith(
+            status: result.created
+                ? DomainResultStatus.success
+                : DomainResultStatus.skipped,
+            zoneId: zone.id,
+            message: message,
+          );
+        }
+      } on CloudflareApiException catch (error) {
+        _canonicalResults[resultIndex] = _canonicalResults[resultIndex]
+            .copyWith(
+          status: DomainResultStatus.failed,
+          message: error.message,
+        );
+      } catch (error) {
+        _canonicalResults[resultIndex] = _canonicalResults[resultIndex]
+            .copyWith(
+          status: DomainResultStatus.failed,
+          message: error.toString(),
+        );
+      }
+
+      bumpProgress();
+    }
+
+    await _runConcurrent(
+      total: hosts.length,
+      concurrency: _bulkConcurrency,
+      run: (i) => processHost(i + 1),
+    );
+
+    _setLoading(false);
+    notifyListeners();
+  }
+
   /// Runs [run] for indices `0..total-1` with up to [concurrency] in flight.
   Future<void> _runConcurrent({
     required int total,
@@ -200,8 +386,22 @@ class AppProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  void clearCanonicalResults() {
+    _canonicalResults = [];
+    notifyListeners();
+  }
+
   String _normalizeToken(String token) {
     return token.trim().replaceAll(RegExp(r'\s+'), '');
+  }
+
+  bool _isDomainRoot(String url) {
+    final uri = Uri.tryParse(url);
+    if (uri == null) {
+      return false;
+    }
+    final path = uri.path.isEmpty ? '/' : uri.path;
+    return path == '/' && !uri.hasQuery;
   }
 
   void _setLoading(bool value) {

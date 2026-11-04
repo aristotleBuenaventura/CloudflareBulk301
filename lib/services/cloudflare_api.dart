@@ -1,8 +1,10 @@
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 
 import '../models/redirect_create_result.dart';
+import 'canonical_worker_source.dart';
 
 class CloudflareApiException implements Exception {
   CloudflareApiException(this.message, {this.statusCode});
@@ -878,6 +880,293 @@ class CloudflareApi {
       normalized = normalized.substring(0, normalized.length - 1);
     }
     return normalized;
+  }
+
+  // --- Canonical injection (Workers) -------------------------------------
+
+  Future<String> resolveAccountId() async {
+    final response = await http.get(
+      Uri.parse('$_baseUrl/accounts?per_page=50'),
+      headers: _headers,
+    );
+    final body = _decode(response);
+    if (!body.success) {
+      throw CloudflareApiException(
+        _firstError(body) ??
+            'Failed to list Cloudflare accounts. '
+                'Ensure the token can access account resources '
+                '(Workers Scripts Edit).',
+        statusCode: response.statusCode,
+      );
+    }
+
+    final accounts = body.result as List<dynamic>? ?? [];
+    if (accounts.isEmpty) {
+      throw CloudflareApiException('No Cloudflare accounts found for this token.');
+    }
+
+    final map = accounts.first as Map<String, dynamic>;
+    final id = map['id'] as String?;
+    if (id == null || id.isEmpty) {
+      throw CloudflareApiException('Could not read Cloudflare account ID.');
+    }
+    return id;
+  }
+
+  /// Returns the existing canonical URL map from the Worker binding, or `{}`.
+  Future<Map<String, String>> getCanonicalMap(String accountId) async {
+    final response = await http.get(
+      Uri.parse(
+        '$_baseUrl/accounts/$accountId/workers/scripts/'
+        '${CanonicalWorkerSource.scriptName}/settings',
+      ),
+      headers: _headers,
+    );
+
+    if (response.statusCode == 404) {
+      return {};
+    }
+
+    final body = _decode(response);
+    if (!body.success) {
+      // Script may not exist yet.
+      return {};
+    }
+
+    final result = body.result as Map<String, dynamic>? ?? {};
+    final bindings = result['bindings'] as List<dynamic>? ?? [];
+    for (final binding in bindings) {
+      if (binding is! Map<String, dynamic>) {
+        continue;
+      }
+      if (binding['name'] == 'CANONICAL_MAP_JSON' &&
+          binding['type'] == 'plain_text') {
+        final text = binding['text'] as String? ?? '{}';
+        try {
+          final decoded = jsonDecode(text);
+          if (decoded is Map<String, dynamic>) {
+            return decoded.map(
+              (key, value) => MapEntry(key, value?.toString() ?? ''),
+            );
+          }
+        } catch (_) {
+          return {};
+        }
+      }
+    }
+    return {};
+  }
+
+  /// Uploads / updates the shared canonical Worker with the given URL map.
+  Future<void> uploadCanonicalWorker({
+    required String accountId,
+    required Map<String, String> canonicalMap,
+  }) async {
+    final metadata = jsonEncode({
+      'main_module': 'worker.js',
+      'compatibility_date': '2024-09-23',
+      'bindings': [
+        {
+          'type': 'plain_text',
+          'name': 'CANONICAL_MAP_JSON',
+          'text': jsonEncode(canonicalMap),
+        },
+      ],
+    });
+
+    final request = http.MultipartRequest(
+      'PUT',
+      Uri.parse(
+        '$_baseUrl/accounts/$accountId/workers/scripts/'
+        '${CanonicalWorkerSource.scriptName}',
+      ),
+    );
+    request.headers['Authorization'] = 'Bearer $_token';
+    request.files.add(
+      http.MultipartFile.fromString(
+        'metadata',
+        metadata,
+        contentType: MediaType('application', 'json'),
+      ),
+    );
+    request.files.add(
+      http.MultipartFile.fromString(
+        'worker.js',
+        CanonicalWorkerSource.javascript,
+        filename: 'worker.js',
+        contentType: MediaType('application', 'javascript+module'),
+      ),
+    );
+
+    final streamed = await request.send();
+    final response = await http.Response.fromStream(streamed);
+    final body = _decode(response);
+    if (!body.success) {
+      throw CloudflareApiException(
+        _firstError(body) ??
+            'Failed to upload canonical Worker. '
+                'Ensure Account → Workers Scripts → Edit is on the token.',
+        statusCode: response.statusCode,
+      );
+    }
+  }
+
+  /// Ensures Workers routes for [hostname] point at the canonical Worker.
+  ///
+  /// Always rewrites existing routes (never skips). Uses `*{hostname}/*`
+  /// so apex + www + all paths are covered. Legacy `hostname/*` routes are
+  /// upgraded to the preferred pattern.
+  Future<RedirectCreateResult> ensureCanonicalRoute({
+    required String zoneId,
+    required String hostname,
+  }) async {
+    final preferred = '*$hostname/*';
+    final legacy = '$hostname/*';
+    final existing = await _listWorkerRoutes(zoneId);
+
+    Map<String, dynamic>? preferredMatch;
+    Map<String, dynamic>? legacyMatch;
+    for (final route in existing) {
+      final pattern = route['pattern'] as String?;
+      if (pattern == preferred) {
+        preferredMatch = route;
+      } else if (pattern == legacy) {
+        legacyMatch = route;
+      }
+    }
+
+    // Prefer updating an existing preferred route in place.
+    if (preferredMatch != null) {
+      final routeId = preferredMatch['id'] as String?;
+      if (routeId != null) {
+        await _updateWorkerRoute(
+          zoneId: zoneId,
+          routeId: routeId,
+          pattern: preferred,
+          script: CanonicalWorkerSource.scriptName,
+        );
+      }
+
+      if (legacyMatch != null) {
+        final legacyId = legacyMatch['id'] as String?;
+        if (legacyId != null) {
+          await _deleteWorkerRoute(zoneId: zoneId, routeId: legacyId);
+        }
+      }
+
+      return RedirectCreateResult.created(
+        'Workers route rewritten: $preferred → '
+        '${CanonicalWorkerSource.scriptName}',
+      );
+    }
+
+    // Upgrade legacy pattern to preferred.
+    if (legacyMatch != null) {
+      final routeId = legacyMatch['id'] as String?;
+      if (routeId != null) {
+        await _updateWorkerRoute(
+          zoneId: zoneId,
+          routeId: routeId,
+          pattern: preferred,
+          script: CanonicalWorkerSource.scriptName,
+        );
+        return RedirectCreateResult.created(
+          'Workers route rewritten: $legacy → $preferred → '
+          '${CanonicalWorkerSource.scriptName}',
+        );
+      }
+    }
+
+    await _createWorkerRoute(
+      zoneId: zoneId,
+      pattern: preferred,
+      script: CanonicalWorkerSource.scriptName,
+    );
+    return RedirectCreateResult.created(
+      'Workers route created: $preferred → '
+      '${CanonicalWorkerSource.scriptName}',
+    );
+  }
+
+  Future<void> _deleteWorkerRoute({
+    required String zoneId,
+    required String routeId,
+  }) async {
+    final response = await http.delete(
+      Uri.parse('$_baseUrl/zones/$zoneId/workers/routes/$routeId'),
+      headers: _headers,
+    );
+    final body = _decode(response);
+    if (!body.success && response.statusCode != 404) {
+      throw CloudflareApiException(
+        _firstError(body) ?? 'Failed to delete Workers route.',
+        statusCode: response.statusCode,
+      );
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> _listWorkerRoutes(String zoneId) async {
+    final response = await http.get(
+      Uri.parse('$_baseUrl/zones/$zoneId/workers/routes'),
+      headers: _headers,
+    );
+    final body = _decode(response);
+    if (!body.success) {
+      throw CloudflareApiException(
+        _firstError(body) ??
+            'Failed to list Workers routes. '
+                'Ensure Zone → Workers Routes → Edit is on the token.',
+        statusCode: response.statusCode,
+      );
+    }
+    return (body.result as List<dynamic>? ?? [])
+        .whereType<Map<String, dynamic>>()
+        .toList();
+  }
+
+  Future<void> _createWorkerRoute({
+    required String zoneId,
+    required String pattern,
+    required String script,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$_baseUrl/zones/$zoneId/workers/routes'),
+      headers: _headers,
+      body: jsonEncode({
+        'pattern': pattern,
+        'script': script,
+      }),
+    );
+    final body = _decode(response);
+    if (!body.success) {
+      throw CloudflareApiException(
+        _firstError(body) ?? 'Failed to create Workers route for $pattern.',
+        statusCode: response.statusCode,
+      );
+    }
+  }
+
+  Future<void> _updateWorkerRoute({
+    required String zoneId,
+    required String routeId,
+    required String pattern,
+    required String script,
+  }) async {
+    final response = await http.put(
+      Uri.parse('$_baseUrl/zones/$zoneId/workers/routes/$routeId'),
+      headers: _headers,
+      body: jsonEncode({
+        'pattern': pattern,
+        'script': script,
+      }),
+    );
+    final body = _decode(response);
+    if (!body.success) {
+      throw CloudflareApiException(
+        _firstError(body) ?? 'Failed to update Workers route for $pattern.',
+        statusCode: response.statusCode,
+      );
+    }
   }
 }
 

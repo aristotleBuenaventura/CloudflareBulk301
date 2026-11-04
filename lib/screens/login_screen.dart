@@ -169,7 +169,8 @@ class _LoginScreenState extends State<LoginScreen> {
                                 ),
                                 const SizedBox(height: 8),
                                 Text(
-                                  'User tokens create Page Rules. Account (cfat_) tokens use Redirect Rules.',
+                                  '301: Page Rules / Redirect Rules. '
+                                  'Canonical: Workers Scripts + Workers Routes Edit.',
                                   textAlign: TextAlign.center,
                                   style: theme.textTheme.bodySmall?.copyWith(
                                     color: theme.colorScheme.onSurfaceVariant,

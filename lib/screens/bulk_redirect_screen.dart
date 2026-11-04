@@ -4,11 +4,9 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../constants/app_window_sizes.dart';
-import '../models/domain_result.dart';
 import '../providers/app_provider.dart';
 import '../services/csv_parser.dart';
-import '../widgets/developer_branding.dart';
+import '../widgets/domain_result_tiles.dart';
 import '../widgets/frozen_scroll_viewport.dart';
 
 class BulkRedirectScreen extends StatefulWidget {
@@ -25,14 +23,6 @@ class _BulkRedirectScreenState extends State<BulkRedirectScreen> {
   var _wildcard = true;
   var _progress = 0;
   var _progressTotal = 0;
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      AppWindowSizes.applyBulkMinimum();
-    });
-  }
 
   @override
   void dispose() {
@@ -154,53 +144,22 @@ class _BulkRedirectScreenState extends State<BulkRedirectScreen> {
     );
   }
 
-  void _logout() {
-    context.read<AppProvider>().logout();
-  }
-
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<AppProvider>();
     final theme = Theme.of(context);
     final results = provider.results;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('SEO 301 Redirects'),
-        actions: [
-          if (provider.accountEmail != null)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              child: Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 220),
-                  child: Text(
-                    provider.accountEmail!,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.bodySmall,
-                  ),
-                ),
-              ),
-            ),
-          IconButton(
-            tooltip: 'Sign out',
-            onPressed: provider.isLoading ? null : _logout,
-            icon: const Icon(Icons.logout),
-          ),
-        ],
-      ),
-      body: Stack(
-        children: [
-          FrozenScrollViewport(
-            minWidth: 900,
-            minHeight: 560,
-            child: LayoutBuilder(
-          builder: (context, constraints) {
-            final formPanel = Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
+    return FrozenScrollViewport(
+      minWidth: 900,
+      minHeight: 560,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final formPanel = Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
@@ -368,9 +327,9 @@ class _BulkRedirectScreenState extends State<BulkRedirectScreen> {
                     value: _progress / _progressTotal,
                   ),
                 ],
-                ],
-              ),
-            );
+              ],
+            ),
+          );
 
           final resultsPanel = Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -416,135 +375,27 @@ class _BulkRedirectScreenState extends State<BulkRedirectScreen> {
                     itemCount: results.length,
                     separatorBuilder: (_, _) => const SizedBox(height: 8),
                     itemBuilder: (context, index) {
-                      return _ResultTile(result: results[index]);
+                      return DomainResultTile(result: results[index]);
                     },
                   ),
                 ),
-              if (results.isNotEmpty) _SummaryBar(results: results),
+              if (results.isNotEmpty)
+                DomainResultSummaryBar(results: results),
             ],
           );
 
-            return Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Expanded(flex: 2, child: formPanel),
-                VerticalDivider(
-                  width: 1,
-                  color: theme.colorScheme.outlineVariant,
-                ),
-                Expanded(flex: 3, child: resultsPanel),
-              ],
-            );
-          },
-            ),
-          ),
-          const Positioned(
-            right: 16,
-            bottom: 8,
-            child: DeveloperBranding(),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ResultTile extends StatelessWidget {
-  const _ResultTile({required this.result});
-
-  final DomainResult result;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final (icon, color, label) = switch (result.status) {
-      DomainResultStatus.pending => (
-          Icons.hourglass_empty,
-          theme.colorScheme.outline,
-          'Pending',
-        ),
-      DomainResultStatus.success => (
-          Icons.check_circle,
-          Colors.green,
-          'Success',
-        ),
-      DomainResultStatus.skipped => (
-          Icons.info_outline,
-          Colors.orange,
-          'Skipped',
-        ),
-      DomainResultStatus.failed => (
-          Icons.error_outline,
-          theme.colorScheme.error,
-          'Failed',
-        ),
-    };
-
-    return Card(
-      margin: EdgeInsets.zero,
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(icon, color: color),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    result.domain,
-                    style: theme.textTheme.titleMedium,
-                  ),
-                  if (result.message != null) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      result.message!,
-                      style: theme.textTheme.bodySmall,
-                    ),
-                  ],
-                  const SizedBox(height: 4),
-                  Text(
-                    label,
-                    style: theme.textTheme.labelMedium?.copyWith(color: color),
-                  ),
-                ],
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(flex: 2, child: formPanel),
+              VerticalDivider(
+                width: 1,
+                color: theme.colorScheme.outlineVariant,
               ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _SummaryBar extends StatelessWidget {
-  const _SummaryBar({required this.results});
-
-  final List<DomainResult> results;
-
-  @override
-  Widget build(BuildContext context) {
-    final success = results
-        .where((r) => r.status == DomainResultStatus.success)
-        .length;
-    final skipped = results
-        .where((r) => r.status == DomainResultStatus.skipped)
-        .length;
-    final failed =
-        results.where((r) => r.status == DomainResultStatus.failed).length;
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        border: Border(
-          top: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
-        ),
-      ),
-      child: Text(
-        '$success created · $skipped skipped · $failed failed · ${results.length} total',
-        textAlign: TextAlign.center,
+              Expanded(flex: 3, child: resultsPanel),
+            ],
+          );
+        },
       ),
     );
   }

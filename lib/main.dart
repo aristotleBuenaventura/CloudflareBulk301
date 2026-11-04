@@ -6,7 +6,7 @@ import 'package:window_manager/window_manager.dart';
 
 import 'constants/app_window_sizes.dart';
 import 'providers/app_provider.dart';
-import 'screens/bulk_redirect_screen.dart';
+import 'screens/home_shell.dart';
 import 'screens/login_screen.dart';
 import 'services/session_service.dart';
 
@@ -61,7 +61,7 @@ class _AuthGate extends StatelessWidget {
   Widget build(BuildContext context) {
     final isAuthenticated = context.watch<AppProvider>().isAuthenticated;
     return isAuthenticated
-        ? const BulkRedirectScreen()
+        ? const HomeShell()
         : const LoginScreen();
   }
 }
